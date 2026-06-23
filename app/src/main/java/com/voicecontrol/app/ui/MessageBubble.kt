@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +32,7 @@ fun MessageBubble(message: Message) {
         Column(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 4.dp)
-                .width(dpMin(280.dp, 0.75f))
+                .widthIn(max = 280.dp)
         ) {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
@@ -64,8 +64,4 @@ fun MessageBubble(message: Message) {
             )
         }
     }
-}
-
-private fun dpMin(dp: androidx.compose.ui.unit.Dp, fraction: Float): androidx.compose.ui.unit.Dp {
-    return dp
 }

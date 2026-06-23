@@ -1,4 +1,3 @@
 <resources>
-    <style name="Theme.VoiceControl" parent="androidx.compose.material3.theme.Material3Theme">
-    </style>
+    <style name="Theme.VoiceControl" parent="Theme.Material3.DayNight.NoActionBar" />
 </resources>
