@@ -28,6 +28,9 @@ jobs:
           ndk-version: r26c
           cmdline-tools-version: latest
 
+      - name: Accept Android Licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+
       - name: Install Gradle
         run: |
           sudo apt-get update
@@ -53,7 +56,7 @@ jobs:
         run: ./gradlew --version
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --info
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
