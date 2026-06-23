@@ -1,10 +1,8 @@
 package com.voicecontrol.app.model
 
-import java.util.*
-
 data class Message(
-    val id: String = UUID.randomUUID().toString(),
+    val id: Long = System.currentTimeMillis(),
     val text: String,
     val isUser: Boolean,
-    val timestamp: Date = Date()
+    val timestamp: Long = System.currentTimeMillis()
 )
