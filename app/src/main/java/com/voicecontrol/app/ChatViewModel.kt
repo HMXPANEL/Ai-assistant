@@ -1,155 +1,146 @@
 package com.voicecontrol.app
 
-import android.content.Context
+import android.app.Application
+import android.content.Intent
+import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.voicecontrol.app.model.Message
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.*
 
-class ChatViewModel(private val context: Context) : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
-    val messages = _messages.asStateFlow()
+    val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
     private val _isListening = MutableStateFlow(false)
-    val isListening = _isListening.asStateFlow()
+    val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
-    private val _speechError = MutableStateFlow<String?>(null)
-    val speechError = _speechError.asStateFlow()
+    private val _inputText = MutableStateFlow("")
+    val inputText: StateFlow<String> = _inputText.asStateFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
-    private val appLauncher = AppLauncher(context)
 
     init {
-        initializeSpeechRecognizer()
+        addBotMessage("Hello! I can open apps for you. Try saying 'open WhatsApp' or type 'show apps'.")
     }
 
-    private fun initializeSpeechRecognizer() {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle) {
-                    _isListening.value = true
-                }
-
-                override fun onBeginningOfSpeech() {}
-
-                override fun onRmsChanged(rmsdB: Float) {}
-
-                override fun onBufferReceived(buffer: ByteArray) {}
-
-                override fun onEndOfSpeech() {
-                    _isListening.value = false
-                }
-
-                override fun onError(error: Int) {
-                    _isListening.value = false
-                    val errorMessage = when (error) {
-                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-                        SpeechRecognizer.ERROR_CLIENT -> "Client error"
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permission denied"
-                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-                        SpeechRecognizer.ERROR_NO_MATCH -> "No match found"
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
-                        SpeechRecognizer.ERROR_SERVER -> "Server error"
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech timeout"
-                        else -> "Speech recognition error"
-                    }
-                    _speechError.value = errorMessage
-                }
-
-                override fun onResults(results: Bundle) {
-                    _isListening.value = false
-                    val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    matches?.firstOrNull()?.let { text ->
-                        addUserMessage(text)
-                        processCommand(text)
-                    }
-                }
-
-                override fun onPartialResults(partialResults: Bundle) {}
-
-                override fun onEvent(eventType: Int, params: Bundle) {}
-            })
-        }
+    fun onInputChange(text: String) {
+        _inputText.value = text
     }
 
-    fun startVoiceInput() {
-        _speechError.value = null
-        speechRecognizer?.let { recognizer ->
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString())
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.listening))
+    fun sendMessage() {
+        val text = _inputText.value.trim()
+        if (text.isEmpty()) return
+
+        addUserMessage(text)
+        _inputText.value = ""
+        processCommand(text)
+    }
+
+    fun processCommand(command: String) {
+        val lower = command.lowercase().trim()
+        viewModelScope.launch {
+            val response = when {
+                lower == "show apps" || lower == "list apps" || lower == "show installed apps" -> {
+                    val apps = AppLauncher.getInstalledApps(getApplication())
+                    if (apps.isEmpty()) {
+                        "No apps found."
+                    } else {
+                        "Installed apps:\n" + apps.joinToString("\n") { "• ${it.name}" }
+                    }
+                }
+                lower.startsWith("open ") -> {
+                    val appName = lower.removePrefix("open ").trim()
+                    AppLauncher.findAndLaunchApp(getApplication(), appName)
+                }
+                lower.startsWith("launch ") -> {
+                    val appName = lower.removePrefix("launch ").trim()
+                    AppLauncher.findAndLaunchApp(getApplication(), appName)
+                }
+                lower.startsWith("start ") -> {
+                    val appName = lower.removePrefix("start ").trim()
+                    AppLauncher.findAndLaunchApp(getApplication(), appName)
+                }
+                lower == "help" || lower == "what can you do" -> {
+                    "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Launch apps by name"
+                }
+                else -> {
+                    "I didn't understand that. Try 'open [app name]' or 'show apps'."
+                }
             }
-            recognizer.startListening(intent)
+            addBotMessage(response)
         }
     }
 
-    fun stopVoiceInput() {
+    fun startListening() {
+        val context = getApplication<Application>()
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            addBotMessage("Speech recognition is not available on this device.")
+            return
+        }
+
+        speechRecognizer?.destroy()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                _isListening.value = true
+            }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {
+                _isListening.value = false
+            }
+            override fun onError(error: Int) {
+                _isListening.value = false
+                addBotMessage("Didn't catch that. Please try again.")
+            }
+            override fun onResults(results: Bundle?) {
+                _isListening.value = false
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                val spokenText = matches?.firstOrNull()
+                if (spokenText != null) {
+                    addUserMessage(spokenText)
+                    processCommand(spokenText)
+                } else {
+                    addBotMessage("Couldn't understand. Please try again.")
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+        speechRecognizer?.startListening(intent)
+    }
+
+    fun stopListening() {
         speechRecognizer?.stopListening()
         _isListening.value = false
     }
 
-    fun sendMessage(text: String) {
-        val trimmedText = text.trim()
-        if (trimmedText.isNotEmpty()) {
-            addUserMessage(trimmedText)
-            processCommand(trimmedText)
-        }
-    }
-
     private fun addUserMessage(text: String) {
-        val message = Message(text = text, isUser = true)
-        _messages.value = _messages.value + message
+        _messages.value = _messages.value + Message(text = text, isUser = true)
     }
 
     private fun addBotMessage(text: String) {
-        val message = Message(text = text, isUser = false)
-        _messages.value = _messages.value + message
-    }
-
-    private fun processCommand(text: String) {
-        val lowerText = text.lowercase(Locale.getDefault()).trim()
-
-        when {
-            lowerText == "show apps" || lowerText == "list apps" -> {
-                val apps = appLauncher.getAllLaunchableApps()
-                if (apps.isNotEmpty()) {
-                    val appsList = apps.joinToString("\n") { "- ${it.label} (${it.packageName})" }
-                    addBotMessage("Installed Apps:\n$appsList")
-                } else {
-                    addBotMessage(context.getString(R.string.no_apps_found))
-                }
-            }
-            lowerText.startsWith("open ") -> {
-                val appName = lowerText.substringAfter("open ").trim()
-                if (appName.isNotEmpty()) {
-                    val success = appLauncher.launchAppByName(appName)
-                    if (!success) {
-                        addBotMessage(context.getString(R.string.app_not_found))
-                    }
-                }
-            }
-            else -> {
-                addBotMessage("I didn't understand. Try 'open WhatsApp', 'open YouTube', or 'show apps'")
-            }
-        }
+        _messages.value = _messages.value + Message(text = text, isUser = false)
     }
 
     override fun onCleared() {
-        speechRecognizer?.destroy()
         super.onCleared()
+        speechRecognizer?.destroy()
     }
 }
