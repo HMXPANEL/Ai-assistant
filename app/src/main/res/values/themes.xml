@@ -1,0 +1,4 @@
+<resources>
+    <style name="Theme.VoiceControl" parent="androidx.compose.material3.theme.Material3Theme">
+    </style>
+</resources>
