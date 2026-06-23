@@ -30,25 +30,13 @@ jobs:
       - name: Accept Android Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-      - name: Check Gradle Availability
+      - name: Check Gradle Version
         run: |
           which gradle
-          gradle --version || echo "Gradle not installed"
-
-      - name: Install Gradle
-        if: failure()
-        run: |
-          wget https://services.gradle.org/distributions/gradle-8.5-bin.zip -O /tmp/gradle-8.5-bin.zip
-          sudo unzip -d /opt/gradle /tmp/gradle-8.5-bin.zip
-          echo "/opt/gradle/gradle-8.5/bin" >> $GITHUB_PATH
+          gradle --version
 
       - name: Generate Gradle Wrapper
-        run: |
-          if command -v gradle &> /dev/null; then
-            gradle wrapper --gradle-version 8.5
-          else
-            /opt/gradle/gradle-8.5/bin/gradle wrapper --gradle-version 8.5
-          fi
+        run: gradle wrapper --gradle-version 8.5
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -63,7 +51,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Check Gradle Version
+      - name: Check Wrapper Version
         run: ./gradlew --version
 
       - name: Build Debug APK
