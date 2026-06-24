@@ -4,10 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.lifecycle.viewmodel.viewModelScope
 import com.voicecontrol.app.ui.ChatScreen
 import com.voicecontrol.app.ui.theme.Theme.VoiceControl
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 

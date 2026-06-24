@@ -30,8 +30,7 @@ object AppLauncher {
         val queryLower = query.lowercase().trim()
 
         val match = apps.firstOrNull { app ->
-            app.name.lowercase().contains(queryLower) ||
-            queryLower.contains(app.name.lowercase())
+            app.name.lowercase().contains(queryLower)
         }
 
         return if (match != null) {
