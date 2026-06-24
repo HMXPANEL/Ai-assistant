@@ -8,6 +8,8 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.voicecontrol.app.data.ApiKeyManager
+import com.voicecontrol.app.data.GeminiClient
 import com.voicecontrol.app.model.Message
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +26,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val apiKeyManager = ApiKeyManager(getApplication())
+    private val geminiClient = GeminiClient()
 
     private var speechRecognizer: SpeechRecognizer? = null
 
@@ -72,10 +80,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Launch apps by name"
                 }
                 else -> {
-                    "I didn't understand that. Try 'open [app name]' or 'show apps'."
+                    getGeminiResponse(command)
                 }
             }
             addBotMessage(response)
+        }
+    }
+
+    private suspend fun getGeminiResponse(prompt: String): String {
+        val apiKey = apiKeyManager.getApiKey()
+        if (apiKey == null) {
+            return "Please set your Gemini API key in Settings to use AI responses."
+        }
+        _isLoading.value = true
+        return try {
+            geminiClient.generateContent(prompt, apiKey)
+        } catch (e: Exception) {
+            "Sorry, I couldn't reach the AI: ${e.message}"
+        } finally {
+            _isLoading.value = false
         }
     }
 
@@ -129,6 +152,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun stopListening() {
         speechRecognizer?.stopListening()
         _isListening.value = false
+    }
+
+    fun clearApiKey() {
+        apiKeyManager.clearApiKey()
     }
 
     private fun addUserMessage(text: String) {
