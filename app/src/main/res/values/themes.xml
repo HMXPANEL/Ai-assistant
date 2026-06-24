@@ -1,3 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.VoiceControl" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.VoiceControl" parent="android:Theme.Material.Light.NoTitleBar">
+        <item name="android:statusBarColor">#FF1976D2</item>
+        <item name="android:navigationBarColor">#FFFFFFFF</item>
+    </style>
 </resources>
