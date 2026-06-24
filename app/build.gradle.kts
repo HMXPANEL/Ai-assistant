@@ -63,7 +63,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // EncryptedSharedPreferences
-    implementation("androidx.security:security-crypto:1.0.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // OkHttp for Gemini API calls
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
