@@ -1,5 +1,9 @@
 package com.voicecontrol.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,7 +38,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,6 +144,53 @@ fun SettingsScreen(
                 )
             ) {
                 Text("Unload Model from Memory")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Permissions", style = MaterialTheme.typography.titleMedium)
+
+            val ctx = LocalContext.current
+            val permissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestMultiplePermissions()
+            ) { _ -> }
+            val permItems = listOf(
+                Manifest.permission.READ_CONTACTS to "Read Contacts",
+                Manifest.permission.READ_SMS to "Read SMS",
+                Manifest.permission.SEND_SMS to "Send SMS",
+                Manifest.permission.READ_CALENDAR to "Read Calendar",
+                Manifest.permission.WRITE_CALENDAR to "Write Calendar",
+                Manifest.permission.CAMERA to "Camera"
+            )
+            permItems.forEach { (perm, label) ->
+                val granted = ContextCompat.checkSelfPermission(ctx, perm) == PackageManager.PERMISSION_GRANTED
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        if (granted) "Granted ✓" else "Denied ✗",
+                        color = if (granted) Color(0xFF2E7D32) else Color(0xFFC62828),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    permissionLauncher.launch(arrayOf(
+                        Manifest.permission.READ_CONTACTS,
+                        Manifest.permission.READ_SMS,
+                        Manifest.permission.SEND_SMS,
+                        Manifest.permission.READ_CALENDAR,
+                        Manifest.permission.WRITE_CALENDAR,
+                        Manifest.permission.CAMERA
+                    ))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+            ) {
+                Text("Grant All Permissions")
             }
         }
     }

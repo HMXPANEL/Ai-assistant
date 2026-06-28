@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,6 +63,23 @@ fun ChatScreen(
         if (isGranted) {
             viewModel.startListening()
         }
+    }
+
+    val multiPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> }
+
+    LaunchedEffect(Unit) {
+        multiPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.READ_CONTACTS,
+                Manifest.permission.READ_SMS,
+                Manifest.permission.SEND_SMS,
+                Manifest.permission.READ_CALENDAR,
+                Manifest.permission.WRITE_CALENDAR,
+                Manifest.permission.CAMERA
+            )
+        )
     }
 
     LaunchedEffect(messages.size) {
