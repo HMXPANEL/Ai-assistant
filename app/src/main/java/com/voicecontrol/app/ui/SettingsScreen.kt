@@ -37,8 +37,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-private val MODEL_PATH = "/storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf"
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -105,18 +103,6 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium
             )
 
-            Text(
-                text = "Model: $MODEL_PATH",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Text(
-                text = "Model: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isModelAvailable) Color(0xFF2E7D32) else Color(0xFFC62828)
-            )
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -131,11 +117,18 @@ fun SettingsScreen(
 
             if (isLocalAiEnabled) {
                 Text(
-                    text = "⚠️ First response will be slow (10–30s) while the model loads into memory. Keep the app open.",
+                    text = "⚠️ Requires 4GB+ RAM and a 1.4GB model file placed at: " +
+                            "[filesDir]/gemma-2b-it-cpu-int4.bin. Responses may be slow on low-RAM devices.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
+
+            Text(
+                text = "Model file: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isModelAvailable) Color(0xFF2E7D32) else Color(0xFFC62828)
+            )
 
             Button(
                 onClick = onUnloadModel,

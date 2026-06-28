@@ -109,7 +109,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return if (!_isLocalAiEnabled.value) {
             "On-device AI is disabled. Enable it in Settings."
         } else if (!localAiClient.isModelAvailable()) {
-            "Model file not found at /storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf — make sure the file is in your Downloads folder."
+            "Model file not found. Download gemma-2b-it-cpu-int4.bin from Kaggle and place it in the app's internal storage."
         } else {
             val history = conversationMemory.getHistory()
             localAiClient.generateResponse(prompt, history)
