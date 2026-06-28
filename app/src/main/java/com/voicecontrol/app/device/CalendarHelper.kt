@@ -50,7 +50,7 @@ object CalendarHelper {
                 "${CalendarContract.Events.DTSTART} ASC"
             )
 
-            cursor?.use {
+            return cursor?.use {
                 val events = mutableListOf<String>()
                 val fmt = SimpleDateFormat("h:mm a", Locale.getDefault())
                 while (it.moveToNext()) {

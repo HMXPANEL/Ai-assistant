@@ -25,11 +25,11 @@ class NotificationService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        companion.addNotification(sbn)
+        addNotification(sbn)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        companion.removeNotification(sbn)
+        removeNotification(sbn)
     }
 
     private fun addNotification(sbn: StatusBarNotification) {

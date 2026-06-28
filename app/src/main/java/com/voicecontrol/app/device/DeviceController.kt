@@ -81,9 +81,15 @@ object DeviceController {
     }
 
     fun toggleBluetooth(context: Context, enable: Boolean): String {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.startActivity(
                 Intent(Settings.Panel.ACTION_BLUETOOTH).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            return "Opening Bluetooth settings. Please toggle Bluetooth manually."
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.startActivity(
+                Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
             return "Opening Bluetooth settings. Please toggle Bluetooth manually."
         }
