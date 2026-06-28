@@ -6,7 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class LocalAiClient(context: Context) {
+class LocalAiClient(private val context: Context) {
 
     private val modelPath = context.filesDir.absolutePath + "/gemma-2b-it-cpu-int4.bin"
     private var inference: LlmInference? = null
@@ -20,7 +20,7 @@ class LocalAiClient(context: Context) {
                     val options = LlmInference.LlmInferenceOptions.builder()
                         .setModelPath(modelPath)
                         .build()
-                    inference = LlmInference.createFromOptions(options)
+                    inference = LlmInference.createFromOptions(context, options)
                 }
 
                 val sb = StringBuilder()
