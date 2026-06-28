@@ -15,7 +15,7 @@
         android:allowBackup="true"
         android:label="AI Assistant"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true"
+
         android:theme="@style/Theme.VoiceControl">
 
         <activity

@@ -6,15 +6,17 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.voicecontrol.app.data.ApiKeyManager
-import com.voicecontrol.app.data.GeminiClient
+import com.voicecontrol.app.data.ConversationMemory
+import com.voicecontrol.app.data.LocalAiClient
 import com.voicecontrol.app.model.Message
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -27,17 +29,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _isTtsEnabled = MutableStateFlow(true)
+    val isTtsEnabled: StateFlow<Boolean> = _isTtsEnabled.asStateFlow()
 
-    private val apiKeyManager = ApiKeyManager(getApplication())
-    private val geminiClient = GeminiClient()
+    private val _isLocalAiEnabled = MutableStateFlow(false)
+    val isLocalAiEnabled: StateFlow<Boolean> = _isLocalAiEnabled.asStateFlow()
+
+    private val conversationMemory = ConversationMemory(getApplication())
+    private val localAiClient = LocalAiClient(getApplication())
 
     private var speechRecognizer: SpeechRecognizer? = null
+    private var tts: TextToSpeech? = null
+    private var isTtsReady = false
 
     init {
-        addBotMessage("Hello! I can open apps for you. Try saying 'open WhatsApp' or type 'show apps'.")
+        tts = TextToSpeech(getApplication()) { status ->
+            isTtsReady = (status == TextToSpeech.SUCCESS)
+        }
+        addBotMessage("Hello! I'm your AI assistant. I can open apps, answer questions, and control your device. Try saying 'open WhatsApp', 'set an alarm', or just ask me anything.")
     }
+
+    fun isModelAvailable(): Boolean = localAiClient.isModelAvailable()
 
     fun onInputChange(text: String) {
         _inputText.value = text
@@ -48,6 +60,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (text.isEmpty()) return
 
         addUserMessage(text)
+        conversationMemory.saveMessage("user", text)
         _inputText.value = ""
         processCommand(text)
     }
@@ -80,25 +93,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Launch apps by name"
                 }
                 else -> {
-                    getGeminiResponse(command)
+                    getLocalAiResponse(command)
                 }
             }
             addBotMessage(response)
         }
     }
 
-    private suspend fun getGeminiResponse(prompt: String): String {
-        val apiKey = apiKeyManager.getApiKey()
-        if (apiKey == null) {
-            return "Please set your Gemini API key in Settings to use AI responses."
-        }
-        _isLoading.value = true
-        return try {
-            geminiClient.generateContent(prompt, apiKey)
-        } catch (e: Exception) {
-            "Sorry, I couldn't reach the AI: ${e.message}"
-        } finally {
-            _isLoading.value = false
+    private suspend fun getLocalAiResponse(prompt: String): String {
+        return if (!_isLocalAiEnabled.value || !localAiClient.isModelAvailable()) {
+            "On-device AI is disabled or model not loaded. Enable it in Settings and download the model file."
+        } else {
+            val history = conversationMemory.getHistory()
+            localAiClient.generateResponse(prompt, history)
         }
     }
 
@@ -131,6 +138,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val spokenText = matches?.firstOrNull()
                 if (spokenText != null) {
                     addUserMessage(spokenText)
+                    conversationMemory.saveMessage("user", spokenText)
                     processCommand(spokenText)
                 } else {
                     addBotMessage("Couldn't understand. Please try again.")
@@ -154,8 +162,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _isListening.value = false
     }
 
-    fun clearApiKey() {
-        apiKeyManager.clearApiKey()
+    fun toggleTts() {
+        _isTtsEnabled.value = !_isTtsEnabled.value
+    }
+
+    fun toggleLocalAi() {
+        _isLocalAiEnabled.value = !_isLocalAiEnabled.value
+    }
+
+    fun clearHistory() {
+        conversationMemory.clearHistory()
+        _messages.value = emptyList()
+    }
+
+    private fun speak(text: String) {
+        if (isTtsReady && _isTtsEnabled.value) {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
     }
 
     private fun addUserMessage(text: String) {
@@ -164,10 +187,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun addBotMessage(text: String) {
         _messages.value = _messages.value + Message(text = text, isUser = false)
+        speak(text)
+        conversationMemory.saveMessage("assistant", text)
     }
 
     override fun onCleared() {
         super.onCleared()
         speechRecognizer?.destroy()
+        tts?.stop()
+        tts?.shutdown()
     }
 }

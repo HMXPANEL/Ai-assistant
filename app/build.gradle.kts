@@ -65,8 +65,8 @@ dependencies {
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // OkHttp for Gemini API calls
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // MediaPipe GenAI for on-device LLM
+    implementation("com.google.mediapipe:tasks-genai:0.10.22")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

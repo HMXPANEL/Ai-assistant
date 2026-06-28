@@ -21,7 +21,8 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,7 +53,7 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isListening by viewModel.isListening.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val isTtsEnabled by viewModel.isTtsEnabled.collectAsState()
     val listState = rememberLazyListState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -74,6 +75,13 @@ fun ChatScreen(
             TopAppBar(
                 title = { Text("AI Assistant") },
                 actions = {
+                    IconButton(onClick = { viewModel.toggleTts() }) {
+                        Icon(
+                            imageVector = if (isTtsEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                            contentDescription = if (isTtsEnabled) "Disable TTS" else "Enable TTS",
+                            tint = Color.White
+                        )
+                    }
                     IconButton(onClick = onOpenSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
@@ -108,21 +116,6 @@ fun ChatScreen(
                     key = { message -> message.id }
                 ) { message ->
                     MessageBubble(message = message)
-                }
-                if (isLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF1976D2),
-                                strokeWidth = 3.dp
-                            )
-                        }
-                    }
                 }
             }
 
