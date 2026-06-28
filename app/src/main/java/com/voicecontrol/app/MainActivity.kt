@@ -33,7 +33,8 @@ class MainActivity : ComponentActivity() {
                         onClearHistory = { viewModel.clearHistory() },
                         isLocalAiEnabled = isLocalAiEnabled,
                         onToggleLocalAi = { viewModel.toggleLocalAi() },
-                        isModelAvailable = viewModel.isModelAvailable()
+                        isModelAvailable = viewModel.isModelAvailable(),
+                        onUnloadModel = { viewModel.unloadModel() }
                     )
                 } else {
                     ChatScreen(

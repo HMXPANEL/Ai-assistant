@@ -65,8 +65,8 @@ dependencies {
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // MediaPipe GenAI for on-device LLM
-    implementation("com.google.mediapipe:tasks-genai:0.10.22")
+    // llama-android for on-device GGUF LLM
+    implementation("com.github.nicowillis:llama-android:0.1.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

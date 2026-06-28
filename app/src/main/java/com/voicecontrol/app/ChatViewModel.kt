@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.Locale
+
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -100,9 +100,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun unloadModel() {
+        localAiClient.unload()
+        addBotMessage("Model unloaded. Tap to reload on next question.")
+    }
+
     private suspend fun getLocalAiResponse(prompt: String): String {
-        return if (!_isLocalAiEnabled.value || !localAiClient.isModelAvailable()) {
-            "On-device AI is disabled or model not loaded. Enable it in Settings and download the model file."
+        return if (!_isLocalAiEnabled.value) {
+            "On-device AI is disabled. Enable it in Settings."
+        } else if (!localAiClient.isModelAvailable()) {
+            "Model file not found at /storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf — make sure the file is in your Downloads folder."
         } else {
             val history = conversationMemory.getHistory()
             localAiClient.generateResponse(prompt, history)
@@ -196,5 +203,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         speechRecognizer?.destroy()
         tts?.stop()
         tts?.shutdown()
+        localAiClient.unload()
     }
 }

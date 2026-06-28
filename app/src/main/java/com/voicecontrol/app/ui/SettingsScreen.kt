@@ -29,15 +29,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+
+private val MODEL_PATH = "/storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +47,8 @@ fun SettingsScreen(
     onClearHistory: () -> Unit = {},
     isLocalAiEnabled: Boolean = false,
     onToggleLocalAi: () -> Unit = {},
-    isModelAvailable: Boolean = false
+    isModelAvailable: Boolean = false,
+    onUnloadModel: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -104,6 +105,18 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium
             )
 
+            Text(
+                text = "Model: $MODEL_PATH",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "Model: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isModelAvailable) Color(0xFF2E7D32) else Color(0xFFC62828)
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -118,18 +131,21 @@ fun SettingsScreen(
 
             if (isLocalAiEnabled) {
                 Text(
-                    text = "⚠️ Requires 4GB+ RAM and a 1.4GB model file placed at: " +
-                            "[filesDir]/gemma-2b-it-cpu-int4.bin. Responses may be slow on low-RAM devices.",
+                    text = "⚠️ First response will be slow (10–30s) while the model loads into memory. Keep the app open.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
 
-            Text(
-                text = "Model file: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isModelAvailable) Color(0xFF2E7D32) else Color(0xFFC62828)
-            )
+            Button(
+                onClick = onUnloadModel,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFC62828)
+                )
+            ) {
+                Text("Unload Model from Memory")
+            }
         }
     }
 }
