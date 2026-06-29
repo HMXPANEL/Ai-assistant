@@ -21,9 +21,9 @@ class LocalAiClient(private val context: Context) {
         try {
             if (!isLoaded || llamaContext == null) {
                 val params = de.kherud.llama.ModelParameters()
-                    .setNGpuLayers(0)
-                    .setNCtx(1024)
-                params.setModelFilePath(modelPath)
+                    .setGpuLayers(0)
+                    .setCtxSize(1024)
+                    .setModel(modelPath)
                 llamaContext = de.kherud.llama.LlamaModel(params)
                 isLoaded = true
             }
