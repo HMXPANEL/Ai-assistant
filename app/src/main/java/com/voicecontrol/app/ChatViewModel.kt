@@ -54,7 +54,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val conversationMemory = ConversationMemory(getApplication())
     internal val localAiClient = LocalAiClient(getApplication())
-    private val _modelCopyProgress = MutableStateFlow(0)
+    private val _modelCopyProgress = MutableStateFlow(-1)
     val modelCopyProgress: StateFlow<Int> = _modelCopyProgress.asStateFlow()
     private val _modelCopyStatus = MutableStateFlow("")
     val modelCopyStatus: StateFlow<String> = _modelCopyStatus.asStateFlow()

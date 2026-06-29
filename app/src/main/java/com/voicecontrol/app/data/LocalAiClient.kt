@@ -13,7 +13,13 @@ import java.io.FileOutputStream
 class LocalAiClient(private val context: Context) {
 
     private val appModelPath = context.filesDir.absolutePath + "/model.gguf"
-    private val modelFileName = "gemma-2-2b-it-lQ4_XS.gguf"
+    private val possibleFileNames = listOf(
+        "gemma-2-2b-it-lQ4_XS.gguf",
+        "gemma-2-2b-it-Q4_K_M.gguf",
+        "model.gguf",
+        "gemma-2b.gguf",
+        "gemma.gguf"
+    )
 
     private var llamaContext: de.kherud.llama.LlamaModel? = null
 
@@ -43,19 +49,50 @@ class LocalAiClient(private val context: Context) {
             MediaStore.Downloads.DISPLAY_NAME,
             MediaStore.Downloads.SIZE
         )
-        val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
-        val selectionArgs = arrayOf(modelFileName)
 
-        val cursor = context.contentResolver.query(
-            collection, projection, selection, selectionArgs, null
-        )
-
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val id = it.getLong(it.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                return Uri.withAppendedPath(collection, id.toString())
+        for (fileName in possibleFileNames) {
+            val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
+            val cursor = context.contentResolver.query(
+                collection, projection, selection, arrayOf(fileName), null
+            )
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val size = it.getLong(
+                        it.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+                    )
+                    if (size > 100_000_000L) {
+                        val id = it.getLong(
+                            it.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                        )
+                        return Uri.withAppendedPath(collection, id.toString())
+                    }
+                }
             }
         }
+
+        // Fallback: scan all files in Downloads for any .gguf or .bin > 100MB
+        val allFilesSelection = "${MediaStore.Downloads.SIZE} > ?"
+        val allFilesCursor = context.contentResolver.query(
+            collection, projection, allFilesSelection,
+            arrayOf("100000000"),
+            "${MediaStore.Downloads.SIZE} DESC"
+        )
+        allFilesCursor?.use {
+            while (it.moveToNext()) {
+                val name = it.getString(
+                    it.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+                )
+                if (name.endsWith(".gguf", ignoreCase = true) ||
+                    name.endsWith(".bin", ignoreCase = true)) {
+                    val id = it.getLong(
+                        it.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                    )
+                    Log.d("LocalAiClient", "Found model file: $name")
+                    return Uri.withAppendedPath(collection, id.toString())
+                }
+            }
+        }
+
         return null
     }
 
@@ -96,9 +133,9 @@ class LocalAiClient(private val context: Context) {
                 "Model copied successfully! Size: ${sizeMB}MB. You can now enable On-Device AI."
 
             } else {
-                "Model file '$modelFileName' not found in Downloads folder.\n" +
-                "Make sure the file is in your Downloads folder and try again.\n" +
-                "File must be named exactly: $modelFileName"
+                "Model file not found in Downloads folder.\n" +
+                "Supported filenames:\n" +
+                possibleFileNames.joinToString("\n") { "  \u2022 $it" }
             }
 
         } catch (e: Exception) {

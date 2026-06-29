@@ -151,8 +151,11 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            if (copyProgress in 0..99) "Copying... $copyProgress%"
-                            else "Copy Model to App Storage"
+                            when {
+                                copyProgress in 0..99 -> "Copying... $copyProgress%"
+                                copyProgress >= 100 || copyStatus.contains("success", ignoreCase = true) -> "Copy Again"
+                                else -> "Copy Model to App Storage"
+                            }
                         )
                     }
 
