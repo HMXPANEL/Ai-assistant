@@ -20,9 +20,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -32,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,21 +44,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.voicecontrol.app.ChatViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    viewModel: ChatViewModel,
     showBackButton: Boolean = false,
     onBack: () -> Unit = {},
-    onClearHistory: () -> Unit = {},
-    isLocalAiEnabled: Boolean = false,
-    onToggleLocalAi: () -> Unit = {},
-    isModelAvailable: Boolean = false,
-    onUnloadModel: () -> Unit = {}
+    onClearHistory: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    val copyProgress by viewModel.modelCopyProgress.collectAsState()
+    val copyStatus by viewModel.modelCopyStatus.collectAsState()
+    val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
 
     Scaffold(
         topBar = {
@@ -104,47 +109,82 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "On-Device AI (Experimental)",
-                style = MaterialTheme.typography.titleMedium
-            )
+            // On-Device AI section
+            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("On-Device AI", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Enable Gemma 2B (On-Device)")
-                Switch(
-                    checked = isLocalAiEnabled,
-                    onCheckedChange = { onToggleLocalAi() }
-                )
-            }
+                    Text(
+                        text = viewModel.localAiClient.getModelStatusMessage(),
+                        color = if (viewModel.localAiClient.isModelAvailable())
+                            Color.Green else Color.Red
+                    )
 
-            if (isLocalAiEnabled) {
-                Text(
-                    text = "⚠️ Requires 4GB+ RAM and a 1.4GB model file placed at: " +
-                            "/storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf. Responses may be slow on low-RAM devices.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
+                    Spacer(Modifier.height(8.dp))
 
-            Text(
-                text = "Model file: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}" +
-                        "\nPath: /storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isModelAvailable) Color(0xFF2E7D32) else Color(0xFFC62828)
-            )
+                    if (copyProgress in 0..99) {
+                        LinearProgressIndicator(
+                            progress = { copyProgress / 100f },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
 
-            Button(
-                onClick = onUnloadModel,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFC62828)
-                )
-            ) {
-                Text("Unload Model from Memory")
+                    if (copyStatus.isNotEmpty()) {
+                        Text(
+                            text = copyStatus,
+                            color = when {
+                                copyStatus.contains("success", ignoreCase = true) -> Color.Green
+                                copyStatus.contains("failed", ignoreCase = true) ||
+                                copyStatus.contains("error", ignoreCase = true) -> Color.Red
+                                else -> Color.Gray
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    Button(
+                        onClick = { viewModel.copyModelToAppStorage() },
+                        enabled = copyProgress !in 0..99,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (copyProgress in 0..99) "Copying... $copyProgress%"
+                            else "Copy Model to App Storage"
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    if (viewModel.localAiClient.isModelAvailable()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Enable On-Device AI")
+                            Switch(
+                                checked = isLocalAiEnabled,
+                                onCheckedChange = { viewModel.toggleLocalAi() }
+                            )
+                        }
+                    }
+
+                    if (isLocalAiEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.unloadModel() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Unload Model from Memory")
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -170,7 +210,7 @@ fun SettingsScreen(
                 ) {
                     Text(label, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        if (granted) "Granted ✓" else "Denied ✗",
+                        if (granted) "Granted \u2713" else "Denied \u2717",
                         color = if (granted) Color(0xFF2E7D32) else Color(0xFFC62828),
                         style = MaterialTheme.typography.bodyMedium
                     )

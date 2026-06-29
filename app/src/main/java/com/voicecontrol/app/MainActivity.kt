@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,17 +23,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             VoiceControl {
                 var showSettings by remember { mutableStateOf(false) }
-                val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
 
                 if (showSettings) {
                     SettingsScreen(
+                        viewModel = viewModel,
                         showBackButton = true,
-                        onBack = { showSettings = false },
-                        onClearHistory = { viewModel.clearHistory() },
-                        isLocalAiEnabled = isLocalAiEnabled,
-                        onToggleLocalAi = { viewModel.toggleLocalAi() },
-                        isModelAvailable = viewModel.isModelAvailable(),
-                        onUnloadModel = { viewModel.unloadModel() }
+                        onBack = { showSettings = false }
                     )
                 } else {
                     ChatScreen(

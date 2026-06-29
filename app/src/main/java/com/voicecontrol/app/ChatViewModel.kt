@@ -53,7 +53,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
 
     private val conversationMemory = ConversationMemory(getApplication())
-    private val localAiClient = LocalAiClient(getApplication())
+    internal val localAiClient = LocalAiClient(getApplication())
+    private val _modelCopyProgress = MutableStateFlow(0)
+    val modelCopyProgress: StateFlow<Int> = _modelCopyProgress.asStateFlow()
+    private val _modelCopyStatus = MutableStateFlow("")
+    val modelCopyStatus: StateFlow<String> = _modelCopyStatus.asStateFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
@@ -226,7 +230,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return if (!_isLocalAiEnabled.value) {
             "On-device AI is disabled. Enable it in Settings."
         } else if (!localAiClient.isModelAvailable()) {
-            "Model file not found. Download gemma-2b-it-cpu-int4.bin from Kaggle and place it in the app's internal storage."
+            "Model not ready. Go to Settings \u2192 tap 'Copy Model to App Storage'."
         } else {
             val history = conversationMemory.getHistory()
             localAiClient.generateResponse(prompt, history)
@@ -292,6 +296,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleLocalAi() {
         _isLocalAiEnabled.value = !_isLocalAiEnabled.value
+    }
+
+    fun copyModelToAppStorage() {
+        _modelCopyProgress.value = 0
+        _modelCopyStatus.value = ""
+        viewModelScope.launch {
+            val result = localAiClient.copyModelToAppStorage { progress ->
+                _modelCopyProgress.value = progress
+            }
+            _modelCopyStatus.value = result
+            if (result.contains("success", ignoreCase = true)) {
+                _modelCopyProgress.value = 100
+            }
+        }
     }
 
     fun clearHistory() {
