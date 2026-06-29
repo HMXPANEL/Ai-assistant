@@ -1,12 +1,15 @@
 package com.voicecontrol.app
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.voicecontrol.app.data.ConversationMemory
@@ -19,8 +22,11 @@ import com.voicecontrol.app.device.NotificationPermissionHelper
 import com.voicecontrol.app.device.NotificationService
 import com.voicecontrol.app.device.SmsManager
 import com.voicecontrol.app.model.Message
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -42,6 +48,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLocalAiEnabled = MutableStateFlow(false)
     val isLocalAiEnabled: StateFlow<Boolean> = _isLocalAiEnabled.asStateFlow()
+
+    private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
 
     private val conversationMemory = ConversationMemory(getApplication())
     private val localAiClient = LocalAiClient(getApplication())
@@ -88,17 +97,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• Read notifications — say 'read notifications'"
 
                 lower.startsWith("send message to ") || lower.startsWith("send sms to ") -> {
-                    val parts = lower.removePrefix("send message to ").removePrefix("send sms to ").split(" saying ", limit = 2)
-                    if (parts.size < 2) "Usage: 'send message to [name] saying [message]'."
-                    else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
+                    if (!hasSmsPermission()) {
+                        _requestSmsPermission.tryEmit(Unit)
+                        "Requesting SMS permission... If the dialog doesn't appear, go to Settings > Apps > AI Assistant > Permissions > SMS"
+                    } else {
+                        val parts = lower.removePrefix("send message to ").removePrefix("send sms to ").split(" saying ", limit = 2)
+                        if (parts.size < 2) "Usage: 'send message to [name] saying [message]'."
+                        else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
+                    }
                 }
                 lower.startsWith("text ") -> {
-                    val parts = lower.removePrefix("text ").trim().split(" ", limit = 2)
-                    if (parts.size < 2) "Usage: 'text [name] [message]'."
-                    else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
+                    if (!hasSmsPermission()) {
+                        _requestSmsPermission.tryEmit(Unit)
+                        "Requesting SMS permission... If the dialog doesn't appear, go to Settings > Apps > AI Assistant > Permissions > SMS"
+                    } else {
+                        val parts = lower.removePrefix("text ").trim().split(" ", limit = 2)
+                        if (parts.size < 2) "Usage: 'text [name] [message]'."
+                        else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
+                    }
                 }
-                lower == "read messages" || lower == "show messages" || lower == "read sms" ->
-                    SmsManager.readRecentSms(getApplication())
+                lower == "read messages" || lower == "show messages" || lower == "read sms" -> {
+                    if (!hasSmsPermission()) {
+                        _requestSmsPermission.tryEmit(Unit)
+                        "Requesting SMS permission... If the dialog doesn't appear, go to Settings > Apps > AI Assistant > Permissions > SMS"
+                    } else {
+                        SmsManager.readRecentSms(getApplication())
+                    }
+                }
 
                 lower == "read notifications" || lower == "show notifications" || lower == "any notifications" || lower == "what's new" || lower == "whats new" -> {
                     if (!NotificationPermissionHelper.isNotificationAccessGranted(getApplication()))
@@ -278,6 +303,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (isTtsReady && _isTtsEnabled.value) {
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
         }
+    }
+
+    fun addSystemMessage(text: String) {
+        addBotMessage(text)
+    }
+
+    private fun hasSmsPermission(): Boolean {
+        val ctx = getApplication<Application>()
+        return ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun addUserMessage(text: String) {

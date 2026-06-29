@@ -65,21 +65,41 @@ fun ChatScreen(
         }
     }
 
-    val multiPermissionLauncher = rememberLauncherForActivityResult(
+    val generalPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
 
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val allGranted = results.values.all { it }
+        if (!allGranted) {
+            viewModel.addSystemMessage(
+                "SMS permission denied. On your phone: Settings > Apps > AI Assistant > Permissions > SMS > Allow"
+            )
+        }
+    }
+
     LaunchedEffect(Unit) {
-        multiPermissionLauncher.launch(
+        generalPermissionLauncher.launch(
             arrayOf(
                 Manifest.permission.READ_CONTACTS,
-                Manifest.permission.READ_SMS,
-                Manifest.permission.SEND_SMS,
                 Manifest.permission.READ_CALENDAR,
                 Manifest.permission.WRITE_CALENDAR,
                 Manifest.permission.CAMERA
             )
         )
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.requestSmsPermission.collect {
+            smsPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.READ_SMS,
+                    Manifest.permission.SEND_SMS
+                )
+            )
+        }
     }
 
     LaunchedEffect(messages.size) {

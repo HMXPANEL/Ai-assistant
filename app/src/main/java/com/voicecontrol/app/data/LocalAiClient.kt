@@ -1,46 +1,68 @@
 package com.voicecontrol.app.data
 
 import android.content.Context
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
 class LocalAiClient(private val context: Context) {
 
-    // ponytail: hardcoded path, make configurable if users need to place model elsewhere
     private val modelPath = "/storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf"
-    private var inference: LlmInference? = null
+    private var isLoaded = false
+    private var llamaContext: de.kherud.llama.LlamaModel? = null
 
     fun isModelAvailable(): Boolean = File(modelPath).exists()
 
-    suspend fun generateResponse(prompt: String, history: List<Pair<String, String>>): String {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (inference == null) {
-                    val options = LlmInference.LlmInferenceOptions.builder()
-                        .setModelPath(modelPath)
-                        .build()
-                    inference = LlmInference.createFromOptions(context, options)
-                }
-
-                val sb = StringBuilder()
-                val recentHistory = history.takeLast(10)
-                for ((role, text) in recentHistory) {
-                    sb.append(if (role == "user") "User: " else "Assistant: ")
-                    sb.appendLine(text)
-                }
-                sb.append("User: ").appendLine(prompt)
-                sb.append("Assistant: ")
-
-                inference?.generateResponse(sb.toString()) ?: "No response"
-            } catch (e: Exception) {
-                "Model error: ${e.message}"
+    suspend fun generateResponse(
+        prompt: String,
+        history: List<Pair<String, String>>
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            if (!isLoaded || llamaContext == null) {
+                val params = de.kherud.llama.ModelParameters()
+                    .setNGpuLayers(0)
+                    .setNCtx(1024)
+                params.setModelFilePath(modelPath)
+                llamaContext = de.kherud.llama.LlamaModel(params)
+                isLoaded = true
             }
+
+            val sb = StringBuilder()
+            val recentHistory = history.takeLast(6)
+            for ((role, text) in recentHistory) {
+                if (role == "user") {
+                    sb.append("<start_of_turn>user\n").append(text).append("<end_of_turn>\n")
+                } else {
+                    sb.append("<start_of_turn>model\n").append(text).append("<end_of_turn>\n")
+                }
+            }
+            sb.append("<start_of_turn>user\n").append(prompt).append("<end_of_turn>\n")
+            sb.append("<start_of_turn>model\n")
+
+            val inferParams = de.kherud.llama.InferenceParameters(sb.toString())
+                .setNPredict(256)
+                .setTemperature(0.7f)
+                .setStopStrings("<end_of_turn>")
+
+            val result = StringBuilder()
+            llamaContext?.generate(inferParams)?.forEach { token ->
+                result.append(token.text)
+            }
+
+            result.toString().trim().ifEmpty { "I couldn't generate a response." }
+
+        } catch (e: Exception) {
+            Log.e("LocalAiClient", "Inference error", e)
+            "Model error: ${e.message}"
         }
     }
 
     fun unload() {
-        inference = null
+        try {
+            llamaContext?.close()
+        } catch (_: Exception) {}
+        llamaContext = null
+        isLoaded = false
     }
 }
