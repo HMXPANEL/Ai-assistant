@@ -73,7 +73,7 @@ object DeviceController {
             context.startActivity(
                 Intent(Settings.Panel.ACTION_WIFI).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
-            return "Opening WiFi settings. Please toggle WiFi manually."
+            return "Android 10+ doesn't allow apps to toggle WiFi directly. Opening WiFi settings — tap the toggle yourself. (This is an Android OS restriction, not a bug.)"
         }
         val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         wm.isWifiEnabled = enable
@@ -85,7 +85,7 @@ object DeviceController {
             context.startActivity(
                 Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
-            return "Opening Bluetooth settings. Please toggle Bluetooth manually."
+            return "Android 12+ doesn't allow apps to toggle Bluetooth directly. Opening Bluetooth settings — tap the toggle yourself."
         }
         val adapter = BluetoothAdapter.getDefaultAdapter()
         if (adapter == null) return "Bluetooth not available."
@@ -95,6 +95,39 @@ object DeviceController {
         } else {
             adapter.disable()
             "Bluetooth turned off."
+        }
+    }
+
+    fun toggleMobileData(context: Context, enable: Boolean): String {
+        return try {
+            val intent = Intent(Settings.ACTION_DATA_ROAMING_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            if (enable) "Opening mobile data settings — tap to enable."
+            else "Opening mobile data settings — tap to disable."
+        } catch (e: Exception) {
+            try {
+                val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                "Opening network settings."
+            } catch (e2: Exception) {
+                "Could not open network settings: ${e2.message}"
+            }
+        }
+    }
+
+    fun openAirplaneMode(context: Context): String {
+        return try {
+            val intent = Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            "Opening Airplane Mode settings."
+        } catch (e: Exception) {
+            "Could not open settings: ${e.message}"
         }
     }
 }

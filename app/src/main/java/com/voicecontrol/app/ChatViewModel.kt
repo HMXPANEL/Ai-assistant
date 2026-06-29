@@ -121,9 +121,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 lower.startsWith("set alarm") || lower.startsWith("wake me") || lower.startsWith("alarm at") -> {
-                    AlarmHelper.parseTimeFromText(lower)?.let { (h, m) ->
-                        AlarmHelper.setAlarm(getApplication(), h, m)
-                    } ?: "Couldn't parse the time. Try 'set alarm at 7am' or 'wake me up at 7:30'."
+                    try {
+                        val parsed = AlarmHelper.parseTimeFromText(lower)
+                        if (parsed == null) {
+                            "I didn't understand that time. Try: 'set alarm at 7am' or 'alarm at 14:30'"
+                        } else {
+                            AlarmHelper.setAlarm(getApplication(), parsed.first, parsed.second)
+                        }
+                    } catch (e: Exception) {
+                        "Alarm error: ${e.message}"
+                    }
                 }
                 lower.startsWith("set timer") || lower.startsWith("timer for") -> {
                     parseDuration(lower)?.let { AlarmHelper.setTimer(getApplication(), it) }
@@ -156,6 +163,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     DeviceController.toggleBluetooth(getApplication(), true)
                 lower == "turn off bluetooth" || lower == "bluetooth off" ->
                     DeviceController.toggleBluetooth(getApplication(), false)
+
+                lower.contains("mobile data") || lower.contains("turn off data") ||
+                lower.contains("turn on data") || lower.contains("mobile network") -> {
+                    val enable = lower.contains("on") || lower.contains("enable")
+                    DeviceController.toggleMobileData(getApplication(), enable)
+                }
+
+                lower.contains("airplane mode") || lower.contains("flight mode") -> {
+                    DeviceController.openAirplaneMode(getApplication())
+                }
+
+                lower.contains("turn off internet") || lower.contains("disable internet") ||
+                lower.contains("turn on internet") -> {
+                    val enable = lower.contains("on") || lower.contains("enable")
+                    DeviceController.toggleMobileData(getApplication(), enable)
+                }
+
+                lower.contains("trun off") || lower.contains("trun on") -> {
+                    val fixedLower = lower.replace("trun", "turn")
+                    processCommand(fixedLower)
+                    return@launch
+                }
 
                 else -> getLocalAiResponse(command)
             }

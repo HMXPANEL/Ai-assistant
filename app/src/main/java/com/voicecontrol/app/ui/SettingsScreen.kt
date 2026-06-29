@@ -124,14 +124,15 @@ fun SettingsScreen(
             if (isLocalAiEnabled) {
                 Text(
                     text = "⚠️ Requires 4GB+ RAM and a 1.4GB model file placed at: " +
-                            "[filesDir]/gemma-2b-it-cpu-int4.bin. Responses may be slow on low-RAM devices.",
+                            "/storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf. Responses may be slow on low-RAM devices.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
 
             Text(
-                text = "Model file: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}",
+                text = "Model file: ${if (isModelAvailable) "Found ✓" else "Not found ✗"}" +
+                        "\nPath: /storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf",
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (isModelAvailable) Color(0xFF2E7D32) else Color(0xFFC62828)
             )

@@ -9,7 +9,7 @@ import java.io.File
 class LocalAiClient(private val context: Context) {
 
     // ponytail: hardcoded path, make configurable if users need to place model elsewhere
-    private val modelPath = context.filesDir.absolutePath + "/gemma-2b-it-cpu-int4.bin"
+    private val modelPath = "/storage/emulated/0/Download/gemma-2-2b-it-lQ4_XS.gguf"
     private var inference: LlmInference? = null
 
     fun isModelAvailable(): Boolean = File(modelPath).exists()
