@@ -65,9 +65,8 @@ dependencies {
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // llama.cpp for GGUF on-device LLM
-    implementation("com.github.nicowillis:llama-android:0.1.0")
-    // fallback if jitpack fails: implementation("io.github.abdulahadkhan:llama-android-kotlin:1.0.2")
+    // llama.cpp for GGUF on-device LLM (Maven Central)
+    implementation("de.kherud:llama:4.2.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
