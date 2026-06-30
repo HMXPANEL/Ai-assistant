@@ -1,8 +1,11 @@
 package com.voicecontrol.app.data
 
+import android.app.ActivityManager
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
+import com.voicecontrol.app.appendToCrashLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -89,11 +92,28 @@ class LocalAiClient(private val context: Context) {
 
         try {
             if (llamaContext == null) {
+                val memInfo = ActivityManager.MemoryInfo()
+                (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memInfo)
+                appendToCrashLog(context, "=== Model Load ===")
+                appendToCrashLog(context, "availMem: ${memInfo.availMem / 1_048_576L}MB")
+                appendToCrashLog(context, "threshold: ${memInfo.threshold / 1_048_576L}MB")
+                appendToCrashLog(context, "lowMemory: ${memInfo.lowMemory}")
+                appendToCrashLog(context, "SUPPORTED_ABIS: ${Build.SUPPORTED_ABIS.joinToString(", ")}")
+                appendToCrashLog(context, "n_ctx: 1024 -> 512 (changed)")
+                appendToCrashLog(context, "use_mmap: true (default, unchanged)")
+
                 val params = de.kherud.llama.ModelParameters()
                     .setGpuLayers(0)
-                    .setCtxSize(1024)
+                    .setCtxSize(512)
                     .setModel(appModelPath)
-                llamaContext = de.kherud.llama.LlamaModel(params)
+                try {
+                    llamaContext = de.kherud.llama.LlamaModel(params)
+                } catch (t: Throwable) {
+                    appendToCrashLog(context, "Model load failed: ${t.javaClass.name}: ${t.message}")
+                    val sw = java.io.StringWriter()
+                    t.printStackTrace(java.io.PrintWriter(sw))
+                    appendToCrashLog(context, sw.toString())
+                }
             }
 
             val sb = StringBuilder()

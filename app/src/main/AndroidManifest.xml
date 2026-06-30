@@ -31,6 +31,7 @@
         android:required="false" />
 
     <application
+        android:name=".VoiceControlApp"
         android:allowBackup="true"
         android:label="AI Assistant"
         android:supportsRtl="true"
