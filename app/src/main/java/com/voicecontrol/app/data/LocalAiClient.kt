@@ -6,10 +6,13 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.voicecontrol.app.appendToCrashLog
+import com.voicecontrol.app.appendToInferenceErrors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.PrintWriter
+import java.io.StringWriter
 
 class LocalAiClient(private val context: Context) {
 
@@ -110,9 +113,11 @@ class LocalAiClient(private val context: Context) {
                     llamaContext = de.kherud.llama.LlamaModel(params)
                 } catch (t: Throwable) {
                     appendToCrashLog(context, "Model load failed: ${t.javaClass.name}: ${t.message}")
-                    val sw = java.io.StringWriter()
-                    t.printStackTrace(java.io.PrintWriter(sw))
+                    val sw = StringWriter()
+                    t.printStackTrace(PrintWriter(sw))
                     appendToCrashLog(context, sw.toString())
+                    appendToInferenceErrors(context, "--- MODEL LOAD ERROR ---", t)
+                    throw t
                 }
             }
 
@@ -138,11 +143,12 @@ class LocalAiClient(private val context: Context) {
                 result.append(token.text)
             }
 
-            result.toString().trim().ifEmpty { "I couldn't generate a response." }
+            result.toString().trim()
 
-        } catch (e: Exception) {
-            Log.e("LocalAiClient", "Inference error", e)
-            "Model error: ${e.message}"
+        } catch (t: Throwable) {
+            Log.e("LocalAiClient", "Inference error", t)
+            appendToInferenceErrors(context, "--- INFERENCE ERROR ---", t)
+            "Error: ${t.javaClass.name} — ${t.message}"
         }
     }
 

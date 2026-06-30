@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.res.Configuration
 import java.io.File
 import java.io.FileWriter
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -14,6 +16,18 @@ internal fun appendToCrashLog(context: Context, entry: String) {
     try {
         FileWriter(File(context.filesDir, "crash_log.txt"), true).use { w ->
             w.appendLine("[${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}] $entry")
+        }
+    } catch (_: Exception) {}
+}
+
+internal fun appendToInferenceErrors(context: Context, header: String, t: Throwable) {
+    try {
+        val sw = StringWriter()
+        sw.appendLine(header)
+        t.printStackTrace(PrintWriter(sw))
+        FileWriter(File(context.filesDir, "inference_errors.txt"), true).use { w ->
+            w.appendLine("[${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}] $header")
+            w.appendLine(sw.toString())
         }
     } catch (_: Exception) {}
 }
