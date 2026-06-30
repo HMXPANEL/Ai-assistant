@@ -63,6 +63,7 @@ fun SettingsScreen(
     val copyProgress by viewModel.modelCopyProgress.collectAsState()
     val copyStatus by viewModel.modelCopyStatus.collectAsState()
     val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
+    val isGeminiEnabled by viewModel.isGeminiEnabled.collectAsState()
 
     val context = LocalContext.current
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -128,91 +129,41 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // On-Device AI section
+            // Gemini AI section
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("On-Device AI", style = MaterialTheme.typography.titleMedium)
+                    Text("Gemini API (Cloud AI)", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
 
-                    Text(
-                        text = viewModel.localAiClient.getModelStatusMessage(),
-                        color = if (viewModel.localAiClient.isModelAvailable())
-                            Color.Green else Color.Red
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    if (copyProgress in 0..99) {
-                        LinearProgressIndicator(
-                            progress = { copyProgress / 100f },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(4.dp))
-                    }
-
-                    if (copyStatus.isNotEmpty()) {
-                        Text(
-                            text = copyStatus,
-                            color = when {
-                                copyStatus.contains("success", ignoreCase = true) -> Color.Green
-                                copyStatus.contains("failed", ignoreCase = true) ||
-                                copyStatus.contains("error", ignoreCase = true) -> Color.Red
-                                else -> Color.Gray
-                            },
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-
-                    Button(
-                        onClick = {
-                            filePickerLauncher.launch(arrayOf("*/*"))
-                        },
-                        enabled = copyProgress !in 0..99,
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            if (copyProgress in 0..99) "Copying... $copyProgress%"
-                            else "Select Model File (.gguf)"
+                        Text("Enable Gemini AI")
+                        Switch(
+                            checked = isGeminiEnabled,
+                            onCheckedChange = { viewModel.toggleGemini() }
                         )
                     }
 
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        "Tap above, then navigate to Downloads and select gemma-2-2b-it-lQ4_XS.gguf",
+                        "Model: gemini-2.5-flash | Uses API key from local.properties",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    if (viewModel.localAiClient.isModelAvailable()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Enable On-Device AI")
-                            Switch(
-                                checked = isLocalAiEnabled,
-                                onCheckedChange = { viewModel.toggleLocalAi() }
-                            )
-                        }
-                    }
-
-                    if (isLocalAiEnabled) {
-                        Spacer(Modifier.height(8.dp))
-                        Button(
-                            onClick = { viewModel.unloadModel() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Unload Model from Memory")
-                        }
-                    }
                 }
             }
+
+// On-device LLM (llama-android) — kept for future rule-based on-device tasks
+//            Spacer(modifier = Modifier.height(16.dp))
+//            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+//                Column(modifier = Modifier.padding(16.dp)) {
+//                    Text("On-Device AI (Legacy)", style = MaterialTheme.typography.titleMedium)
+//                    ...
+//                }
+//            }
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("Permissions", style = MaterialTheme.typography.titleMedium)

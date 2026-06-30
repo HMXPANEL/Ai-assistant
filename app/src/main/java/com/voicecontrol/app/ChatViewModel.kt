@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.voicecontrol.app.data.ConversationMemory
+import com.voicecontrol.app.data.GeminiClient
 import com.voicecontrol.app.data.LocalAiClient
 import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
@@ -50,11 +51,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLocalAiEnabled = MutableStateFlow(false)
     val isLocalAiEnabled: StateFlow<Boolean> = _isLocalAiEnabled.asStateFlow()
 
+    private val _isGeminiEnabled = MutableStateFlow(true)
+    val isGeminiEnabled: StateFlow<Boolean> = _isGeminiEnabled.asStateFlow()
+
+    val geminiClient = GeminiClient()
+
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
 
     private val conversationMemory = ConversationMemory(getApplication())
-    internal val localAiClient = LocalAiClient(getApplication())
+    internal val localAiClient = LocalAiClient(getApplication()) // kept for future on-device use
     private val _modelCopyProgress = MutableStateFlow(-1)
     val modelCopyProgress: StateFlow<Int> = _modelCopyProgress.asStateFlow()
     private val _modelCopyStatus = MutableStateFlow("")
@@ -228,14 +234,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun getLocalAiResponse(prompt: String): String {
-        return if (!_isLocalAiEnabled.value) {
-            "On-device AI is disabled. Enable it in Settings."
-        } else if (!localAiClient.isModelAvailable()) {
-            "Model not ready. Go to Settings \u2192 tap 'Copy Model to App Storage'."
-        } else {
+        return if (_isGeminiEnabled.value) {
             val history = conversationMemory.getHistory()
-            localAiClient.generateResponse(prompt, history)
+            geminiClient.generateResponse(prompt, history)
+        } else {
+            "AI is disabled. Enable Gemini in Settings."
         }
+    // ponytail: localAI kept for future rule-based on-device tasks
+    // private suspend fun getLocalAiResponse(prompt: String): String {
+    //     return if (!_isLocalAiEnabled.value) {
+    //         "On-device AI is disabled. Enable it in Settings."
+    //     } else if (!localAiClient.isModelAvailable()) {
+    //         "Model not ready. Go to Settings → tap 'Copy Model to App Storage'."
+    //     } else {
+    //         val history = conversationMemory.getHistory()
+    //         localAiClient.generateResponse(prompt, history)
+    //     }
+    // }
     }
 
     fun startListening() {
@@ -297,6 +312,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleLocalAi() {
         _isLocalAiEnabled.value = !_isLocalAiEnabled.value
+    }
+
+    fun toggleGemini() {
+        _isGeminiEnabled.value = !_isGeminiEnabled.value
     }
 
     fun copyModelFromUri(uri: Uri) {

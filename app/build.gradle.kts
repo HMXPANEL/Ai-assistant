@@ -4,6 +4,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
 
+val localProperties = rootProject.file("local.properties").let { file ->
+    java.util.Properties().apply {
+        if (file.exists()) load(file.inputStream())
+    }
+}
+val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: "YOUR_API_KEY_HERE"
+
 android {
     namespace = "com.voicecontrol.app"
     compileSdk = 35
@@ -14,6 +21,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildTypes {
@@ -33,6 +42,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -67,6 +77,9 @@ dependencies {
 
     // llama.cpp for GGUF on-device LLM (Maven Central)
     implementation("de.kherud:llama:4.2.0")
+
+    // Google AI client SDK for Gemini
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
