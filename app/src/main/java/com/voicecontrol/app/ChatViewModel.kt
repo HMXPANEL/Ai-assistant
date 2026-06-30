@@ -13,6 +13,8 @@ import android.speech.tts.TextToSpeech
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.data.GeminiClient
 import com.voicecontrol.app.data.LocalAiClient
@@ -54,7 +56,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGeminiEnabled = MutableStateFlow(true)
     val isGeminiEnabled: StateFlow<Boolean> = _isGeminiEnabled.asStateFlow()
 
-    val geminiClient = GeminiClient()
+    private val _geminiApiKey = MutableStateFlow("")
+    val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
+
+    private var geminiClient = GeminiClient("")
+
+    private val prefs by lazy {
+        val masterKey = MasterKey.Builder(getApplication())
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            getApplication(),
+            "gemini_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
@@ -71,10 +89,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var isTtsReady = false
 
     init {
+        val savedKey = prefs.getString("gemini_api_key", "") ?: ""
+        _geminiApiKey.value = savedKey
+        if (savedKey.isNotBlank()) geminiClient = GeminiClient(savedKey)
+
         tts = TextToSpeech(getApplication()) { status ->
             isTtsReady = (status == TextToSpeech.SUCCESS)
         }
         addBotMessage("Hello! I'm your AI assistant. Try 'open YouTube', 'send message to [name] saying [text]', 'set alarm at 7am', 'read messages', or 'flashlight on'.")
+    }
+
+    fun saveGeminiApiKey(key: String) {
+        prefs.edit().putString("gemini_api_key", key).apply()
+        _geminiApiKey.value = key
+        geminiClient = GeminiClient(key)
     }
 
     fun isModelAvailable(): Boolean = localAiClient.isModelAvailable()

@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,8 +39,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,6 +67,7 @@ fun SettingsScreen(
     val copyStatus by viewModel.modelCopyStatus.collectAsState()
     val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
     val isGeminiEnabled by viewModel.isGeminiEnabled.collectAsState()
+    val savedApiKey by viewModel.geminiApiKey.collectAsState()
 
     val context = LocalContext.current
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -147,9 +151,31 @@ fun SettingsScreen(
                         )
                     }
 
+                    Spacer(Modifier.height(8.dp))
+
+                    var apiKeyInput by remember { mutableStateOf(savedApiKey) }
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = { apiKeyInput = it },
+                        label = { Text("Gemini API Key") },
+                        placeholder = { Text("Paste your API key from aistudio.google.com") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Button(
+                        onClick = { viewModel.saveGeminiApiKey(apiKeyInput.trim()) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = apiKeyInput.isNotBlank()
+                    ) {
+                        Text("Save API Key")
+                    }
+
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Model: gemini-2.5-flash | Uses API key from local.properties",
+                        "Model: gemini-2.5-flash \u2022 Get a free key at aistudio.google.com",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
