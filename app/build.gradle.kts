@@ -4,8 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
 
+import java.util.Properties
+
 val localProperties = rootProject.file("local.properties").let { file ->
-    java.util.Properties().apply {
+    Properties().apply {
         if (file.exists()) load(file.inputStream())
     }
 }
