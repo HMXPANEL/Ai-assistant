@@ -13,9 +13,8 @@ import android.speech.tts.TextToSpeech
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.voicecontrol.app.data.ConversationMemory
+import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.data.GeminiClient
 import com.voicecontrol.app.data.LocalAiClient
 import com.voicecontrol.app.device.AlarmHelper
@@ -61,19 +60,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private var geminiClient = GeminiClient("")
 
-    private val prefs by lazy {
-        val masterKey = MasterKey.Builder(getApplication())
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            getApplication(),
-            "gemini_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
-
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
 
@@ -89,7 +75,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var isTtsReady = false
 
     init {
-        val savedKey = prefs.getString("gemini_api_key", "") ?: ""
+        val savedKey = SecureKeyStore.getGeminiApiKey(getApplication()) ?: ""
         _geminiApiKey.value = savedKey
         if (savedKey.isNotBlank()) geminiClient = GeminiClient(savedKey)
 
@@ -100,7 +86,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveGeminiApiKey(key: String) {
-        prefs.edit().putString("gemini_api_key", key).apply()
+        SecureKeyStore.saveGeminiApiKey(getApplication(), key)
         _geminiApiKey.value = key
         geminiClient = GeminiClient(key)
     }

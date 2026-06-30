@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">AI Assistant uses AccessibilityService to read and interact with the screen on your behalf. It can read UI elements, click buttons, type text, scroll, and perform gestures to automate tasks. No personal data is collected or stored.</string>
+</resources>
