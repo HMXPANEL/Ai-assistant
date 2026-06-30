@@ -13,6 +13,7 @@ import android.speech.tts.TextToSpeech
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.voicecontrol.app.agent.AgentLlmEngine
 import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.data.GeminiClient
@@ -65,6 +66,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val conversationMemory = ConversationMemory(getApplication())
     internal val localAiClient = LocalAiClient(getApplication()) // kept for future on-device use
+    private val agentLlmEngine = AgentLlmEngine(getApplication()).also { engine ->
+        engine.onStatusUpdate = { status -> addBotMessage(status) }
+    }
     private val _modelCopyProgress = MutableStateFlow(-1)
     val modelCopyProgress: StateFlow<Int> = _modelCopyProgress.asStateFlow()
     private val _modelCopyStatus = MutableStateFlow("")
@@ -110,15 +114,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun processCommand(command: String) {
         val lower = command.lowercase().trim()
         viewModelScope.launch {
+            // Compound/multi-step commands (contains "and") → route directly to AgentLlmEngine
+            if (lower.contains(" and ")) {
+                agentLlmEngine.startTask(command, viewModelScope)
+                return@launch
+            }
+
             val response = when {
                 lower == "show apps" || lower == "list apps" || lower == "show installed apps" -> {
                     val apps = AppLauncher.getInstalledApps(getApplication())
                     if (apps.isEmpty()) "No apps found."
                     else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.name}" }
                 }
-                lower.startsWith("open ") -> AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("open ").trim())
-                lower.startsWith("launch ") -> AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("launch ").trim())
-                lower.startsWith("start ") -> AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("start ").trim())
+                lower.startsWith("open ") -> {
+                    val result = AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("open ").trim())
+                    if (result.startsWith("App not found")) {
+                        agentLlmEngine.startTask(command, viewModelScope)
+                        return@launch
+                    }
+                    result
+                }
+                lower.startsWith("launch ") -> {
+                    val result = AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("launch ").trim())
+                    if (result.startsWith("App not found")) {
+                        agentLlmEngine.startTask(command, viewModelScope)
+                        return@launch
+                    }
+                    result
+                }
+                lower.startsWith("start ") -> {
+                    val result = AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("start ").trim())
+                    if (result.startsWith("App not found")) {
+                        agentLlmEngine.startTask(command, viewModelScope)
+                        return@launch
+                    }
+                    result
+                }
                 lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• Read notifications — say 'read notifications'"
 
                 lower.startsWith("send message to ") || lower.startsWith("send sms to ") -> {
@@ -236,7 +267,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                else -> getLocalAiResponse(command)
+                else -> {
+                    agentLlmEngine.startTask(command, viewModelScope)
+                    return@launch
+                }
             }
             addBotMessage(response)
         }
