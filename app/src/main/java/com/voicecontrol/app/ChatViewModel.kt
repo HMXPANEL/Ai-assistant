@@ -299,15 +299,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun copyModelToAppStorage() {
+        _modelCopyStatus.value = "Starting copy..."
         _modelCopyProgress.value = 0
-        _modelCopyStatus.value = ""
+
         viewModelScope.launch {
-            val result = localAiClient.copyModelToAppStorage { progress ->
-                _modelCopyProgress.value = progress
-            }
-            _modelCopyStatus.value = result
-            if (result.contains("success", ignoreCase = true)) {
-                _modelCopyProgress.value = 100
+            try {
+                val result = localAiClient.copyModelToAppStorage { progress ->
+                    _modelCopyProgress.value = progress
+                    _modelCopyStatus.value = "Copying... $progress%"
+                }
+                _modelCopyStatus.value = result
+            } catch (e: Exception) {
+                _modelCopyStatus.value = "CRASH: ${e.javaClass.simpleName} - ${e.message}"
+            } catch (e: Throwable) {
+                _modelCopyStatus.value = "FATAL: ${e.message}"
+            } finally {
+                _modelCopyProgress.value = -1
             }
         }
     }

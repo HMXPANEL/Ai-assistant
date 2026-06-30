@@ -146,16 +146,15 @@ fun SettingsScreen(
                     }
 
                     Button(
-                        onClick = { viewModel.copyModelToAppStorage() },
+                        onClick = {
+                            viewModel.copyModelToAppStorage()
+                        },
                         enabled = copyProgress !in 0..99,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            when {
-                                copyProgress in 0..99 -> "Copying... $copyProgress%"
-                                copyProgress >= 100 || copyStatus.contains("success", ignoreCase = true) -> "Copy Again"
-                                else -> "Copy Model to App Storage"
-                            }
+                            if (copyProgress in 0..99) "Copying... $copyProgress%"
+                            else "Copy Model to App Storage"
                         )
                     }
 

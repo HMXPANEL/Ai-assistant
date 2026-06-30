@@ -100,47 +100,78 @@ class LocalAiClient(private val context: Context) {
         onProgress: (Int) -> Unit
     ): String = withContext(Dispatchers.IO) {
         try {
+            onProgress(1)
+
             val uri = findModelUriInDownloads()
 
-            if (uri != null) {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                    ?: return@withContext "Could not open model file from Downloads."
+            if (uri == null) {
+                val debugInfo = StringBuilder("No matching file found.\n\n")
+                debugInfo.append("Files found in Downloads via MediaStore:\n")
 
-                val fileSize = context.contentResolver.openFileDescriptor(uri, "r")
-                    ?.statSize ?: 0L
-
-                val destFile = File(appModelPath)
-                var copiedBytes = 0L
-
-                inputStream.buffered(8 * 1024 * 1024).use { input ->
-                    FileOutputStream(destFile).buffered(8 * 1024 * 1024).use { output ->
-                        val buffer = ByteArray(8 * 1024 * 1024)
-                        var bytes = input.read(buffer)
-                        while (bytes >= 0) {
-                            output.write(buffer, 0, bytes)
-                            copiedBytes += bytes
-                            if (fileSize > 0) {
-                                val progress = ((copiedBytes * 100) / fileSize).toInt()
-                                onProgress(progress.coerceIn(0, 99))
-                            }
-                            bytes = input.read(buffer)
+                try {
+                    val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                    val projection = arrayOf(
+                        MediaStore.Downloads.DISPLAY_NAME,
+                        MediaStore.Downloads.SIZE
+                    )
+                    val cursor = context.contentResolver.query(
+                        collection, projection, null, null, null
+                    )
+                    cursor?.use {
+                        var count = 0
+                        while (it.moveToNext() && count < 20) {
+                            val name = it.getString(
+                                it.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+                            )
+                            val size = it.getLong(
+                                it.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+                            )
+                            debugInfo.append("- $name (${size / 1_048_576}MB)\n")
+                            count++
+                        }
+                        if (count == 0) {
+                            debugInfo.append("(MediaStore query returned ZERO files — permission or indexing issue)\n")
                         }
                     }
+                } catch (e: Exception) {
+                    debugInfo.append("MediaStore query itself failed: ${e.message}\n")
                 }
 
-                onProgress(100)
-                val sizeMB = destFile.length() / 1_048_576
-                "Model copied successfully! Size: ${sizeMB}MB. You can now enable On-Device AI."
-
-            } else {
-                "Model file not found in Downloads folder.\n" +
-                "Supported filenames:\n" +
-                possibleFileNames.joinToString("\n") { "  \u2022 $it" }
+                return@withContext debugInfo.toString()
             }
+
+            val inputStream = context.contentResolver.openInputStream(uri)
+                ?: return@withContext "Could not open model file from Downloads."
+
+            val fileSize = context.contentResolver.openFileDescriptor(uri, "r")
+                ?.statSize ?: 0L
+
+            val destFile = File(appModelPath)
+            var copiedBytes = 0L
+
+            inputStream.buffered(8 * 1024 * 1024).use { input ->
+                FileOutputStream(destFile).buffered(8 * 1024 * 1024).use { output ->
+                    val buffer = ByteArray(8 * 1024 * 1024)
+                    var bytes = input.read(buffer)
+                    while (bytes >= 0) {
+                        output.write(buffer, 0, bytes)
+                        copiedBytes += bytes
+                        if (fileSize > 0) {
+                            val progress = ((copiedBytes * 100) / fileSize).toInt()
+                            onProgress(progress.coerceIn(0, 99))
+                        }
+                        bytes = input.read(buffer)
+                    }
+                }
+            }
+
+            onProgress(100)
+            val sizeMB = destFile.length() / 1_048_576
+            "Model copied successfully! Size: ${sizeMB}MB. You can now enable On-Device AI."
 
         } catch (e: Exception) {
             Log.e("LocalAiClient", "Copy error", e)
-            "Copy failed: ${e.message}"
+            "Copy failed with exception: ${e.javaClass.simpleName}: ${e.message}\nStack: ${e.stackTrace.take(3).joinToString()}"
         }
     }
 
