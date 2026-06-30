@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -298,21 +299,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _isLocalAiEnabled.value = !_isLocalAiEnabled.value
     }
 
-    fun copyModelToAppStorage() {
+    fun copyModelFromUri(uri: Uri) {
         _modelCopyStatus.value = "Starting copy..."
         _modelCopyProgress.value = 0
 
         viewModelScope.launch {
             try {
-                val result = localAiClient.copyModelToAppStorage { progress ->
+                val result = localAiClient.copyModelFromUri(uri) { progress ->
                     _modelCopyProgress.value = progress
                     _modelCopyStatus.value = "Copying... $progress%"
                 }
                 _modelCopyStatus.value = result
             } catch (e: Exception) {
-                _modelCopyStatus.value = "CRASH: ${e.javaClass.simpleName} - ${e.message}"
-            } catch (e: Throwable) {
-                _modelCopyStatus.value = "FATAL: ${e.message}"
+                _modelCopyStatus.value = "Error: ${e.message}"
             } finally {
                 _modelCopyProgress.value = -1
             }

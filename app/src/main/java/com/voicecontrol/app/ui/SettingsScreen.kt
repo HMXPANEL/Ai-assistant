@@ -1,7 +1,9 @@
 package com.voicecontrol.app.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -62,13 +64,19 @@ fun SettingsScreen(
     val copyStatus by viewModel.modelCopyStatus.collectAsState()
     val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
 
-    val storagePermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            viewModel.addSystemMessage("Storage permission granted. Try copying the model now.")
-        } else {
-            viewModel.addSystemMessage("Storage permission denied. Cannot read Downloads folder.")
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                LocalContext.current.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                // some providers don't support persistable permission, ignore
+            }
+            viewModel.copyModelFromUri(uri)
         }
     }
 
@@ -156,26 +164,23 @@ fun SettingsScreen(
                     }
 
                     Button(
-                        onClick = { storagePermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Grant Storage Read Permission")
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Button(
                         onClick = {
-                            viewModel.copyModelToAppStorage()
+                            filePickerLauncher.launch(arrayOf("*/*"))
                         },
                         enabled = copyProgress !in 0..99,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             if (copyProgress in 0..99) "Copying... $copyProgress%"
-                            else "Copy Model to App Storage"
+                            else "Select Model File (.gguf)"
                         )
                     }
+
+                    Text(
+                        "Tap above, then navigate to Downloads and select gemma-2-2b-it-lQ4_XS.gguf",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
 
                     Spacer(Modifier.height(8.dp))
 

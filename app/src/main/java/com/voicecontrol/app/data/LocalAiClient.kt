@@ -2,8 +2,6 @@ package com.voicecontrol.app.data
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,13 +11,6 @@ import java.io.FileOutputStream
 class LocalAiClient(private val context: Context) {
 
     private val appModelPath = context.filesDir.absolutePath + "/model.gguf"
-    private val possibleFileNames = listOf(
-        "gemma-2-2b-it-lQ4_XS.gguf",
-        "gemma-2-2b-it-Q4_K_M.gguf",
-        "model.gguf",
-        "gemma-2b.gguf",
-        "gemma.gguf"
-    )
 
     private var llamaContext: de.kherud.llama.LlamaModel? = null
 
@@ -40,100 +31,20 @@ class LocalAiClient(private val context: Context) {
         }
     }
 
-    private fun findModelUriInDownloads(): Uri? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-
-        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL)
-        val projection = arrayOf(
-            MediaStore.Downloads._ID,
-            MediaStore.Downloads.DISPLAY_NAME,
-            MediaStore.Downloads.SIZE
-        )
-
-        for (fileName in possibleFileNames) {
-            val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
-            val cursor = context.contentResolver.query(
-                collection, projection, selection, arrayOf(fileName), null
-            )
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val size = it.getLong(
-                        it.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
-                    )
-                    if (size > 100_000_000L) {
-                        val id = it.getLong(
-                            it.getColumnIndexOrThrow(MediaStore.Downloads._ID)
-                        )
-                        return Uri.withAppendedPath(collection, id.toString())
-                    }
-                }
-            }
-        }
-
-        // Fallback: scan all files in Downloads for any .gguf or .bin > 100MB
-        val allFilesSelection = "${MediaStore.Downloads.SIZE} > ?"
-        val allFilesCursor = context.contentResolver.query(
-            collection, projection, allFilesSelection,
-            arrayOf("100000000"),
-            "${MediaStore.Downloads.SIZE} DESC"
-        )
-        allFilesCursor?.use {
-            while (it.moveToNext()) {
-                val name = it.getString(
-                    it.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
-                )
-                if (name.endsWith(".gguf", ignoreCase = true) ||
-                    name.endsWith(".bin", ignoreCase = true)) {
-                    val id = it.getLong(
-                        it.getColumnIndexOrThrow(MediaStore.Downloads._ID)
-                    )
-                    Log.d("LocalAiClient", "Found model file: $name")
-                    return Uri.withAppendedPath(collection, id.toString())
-                }
-            }
-        }
-
-        return null
-    }
-
-    private fun findModelViaDirectPath(): File? {
-        val downloadsDir = File("/storage/emulated/0/Download")
-        if (!downloadsDir.exists() || !downloadsDir.canRead()) {
-            return null
-        }
-
-        val files = downloadsDir.listFiles() ?: return null
-
-        return files.firstOrNull { file ->
-            file.name.endsWith(".gguf", ignoreCase = true) &&
-            file.length() > 100_000_000L
-        }
-    }
-
-    suspend fun copyModelToAppStorage(
+    suspend fun copyModelFromUri(
+        uri: Uri,
         onProgress: (Int) -> Unit
     ): String = withContext(Dispatchers.IO) {
         try {
             onProgress(1)
 
-            val directFile = findModelViaDirectPath()
+            val inputStream = context.contentResolver.openInputStream(uri)
+                ?: return@withContext "Could not open selected file."
 
-            val inputStream: java.io.InputStream
-            val fileSize: Long
-
-            if (directFile != null) {
-                inputStream = directFile.inputStream()
-                fileSize = directFile.length()
-            } else {
-                val uri = findModelUriInDownloads()
-                if (uri == null) {
-                    return@withContext "Model file not found.\n\n" +
-                        "Direct file access: ${if (File("/storage/emulated/0/Download").canRead()) "Can read folder but no .gguf found" else "PERMISSION DENIED - tap 'Grant Storage Read Permission' above first"}\n\n" +
-                        "Make sure gemma-2-2b-it-lQ4_XS.gguf is in your Downloads folder."
-                }
-                inputStream = context.contentResolver.openInputStream(uri)
-                    ?: return@withContext "Could not open file stream."
-                fileSize = context.contentResolver.openFileDescriptor(uri, "r")?.statSize ?: 0L
+            val fileSize = try {
+                context.contentResolver.openFileDescriptor(uri, "r")?.statSize ?: 0L
+            } catch (e: Exception) {
+                0L
             }
 
             val destFile = File(appModelPath)
@@ -155,10 +66,14 @@ class LocalAiClient(private val context: Context) {
             }
 
             onProgress(100)
-            "Model copied successfully! Size: ${destFile.length() / 1_048_576}MB"
 
-        } catch (e: SecurityException) {
-            "Permission denied: ${e.message}\nTap 'Grant Storage Read Permission' above and try again."
+            if (destFile.length() < 100_000_000L) {
+                destFile.delete()
+                "File copied but too small (${destFile.length() / 1024}KB) — did you select the right file?"
+            } else {
+                "Model copied successfully! Size: ${destFile.length() / 1_048_576}MB"
+            }
+
         } catch (e: Exception) {
             "Copy failed: ${e.javaClass.simpleName}: ${e.message}"
         }
