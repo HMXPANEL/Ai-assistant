@@ -64,16 +64,17 @@ fun SettingsScreen(
     val copyStatus by viewModel.modelCopyStatus.collectAsState()
     val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
 
+    val context = LocalContext.current
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             try {
-                LocalContext.current.contentResolver.takePersistableUriPermission(
+                context.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // some providers don't support persistable permission, ignore
             }
             viewModel.copyModelFromUri(uri)
