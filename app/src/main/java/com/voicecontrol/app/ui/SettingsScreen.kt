@@ -62,6 +62,16 @@ fun SettingsScreen(
     val copyStatus by viewModel.modelCopyStatus.collectAsState()
     val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
 
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.addSystemMessage("Storage permission granted. Try copying the model now.")
+        } else {
+            viewModel.addSystemMessage("Storage permission denied. Cannot read Downloads folder.")
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -144,6 +154,15 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                     }
+
+                    Button(
+                        onClick = { storagePermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Grant Storage Read Permission")
+                    }
+
+                    Spacer(Modifier.height(4.dp))
 
                     Button(
                         onClick = {

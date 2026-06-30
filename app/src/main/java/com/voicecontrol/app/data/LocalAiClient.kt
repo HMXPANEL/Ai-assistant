@@ -96,55 +96,45 @@ class LocalAiClient(private val context: Context) {
         return null
     }
 
+    private fun findModelViaDirectPath(): File? {
+        val downloadsDir = File("/storage/emulated/0/Download")
+        if (!downloadsDir.exists() || !downloadsDir.canRead()) {
+            return null
+        }
+
+        val files = downloadsDir.listFiles() ?: return null
+
+        return files.firstOrNull { file ->
+            file.name.endsWith(".gguf", ignoreCase = true) &&
+            file.length() > 100_000_000L
+        }
+    }
+
     suspend fun copyModelToAppStorage(
         onProgress: (Int) -> Unit
     ): String = withContext(Dispatchers.IO) {
         try {
             onProgress(1)
 
-            val uri = findModelUriInDownloads()
+            val directFile = findModelViaDirectPath()
 
-            if (uri == null) {
-                val debugInfo = StringBuilder("No matching file found.\n\n")
-                debugInfo.append("Files found in Downloads via MediaStore:\n")
+            val inputStream: java.io.InputStream
+            val fileSize: Long
 
-                try {
-                    val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL)
-                    val projection = arrayOf(
-                        MediaStore.Downloads.DISPLAY_NAME,
-                        MediaStore.Downloads.SIZE
-                    )
-                    val cursor = context.contentResolver.query(
-                        collection, projection, null, null, null
-                    )
-                    cursor?.use {
-                        var count = 0
-                        while (it.moveToNext() && count < 20) {
-                            val name = it.getString(
-                                it.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
-                            )
-                            val size = it.getLong(
-                                it.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
-                            )
-                            debugInfo.append("- $name (${size / 1_048_576}MB)\n")
-                            count++
-                        }
-                        if (count == 0) {
-                            debugInfo.append("(MediaStore query returned ZERO files — permission or indexing issue)\n")
-                        }
-                    }
-                } catch (e: Exception) {
-                    debugInfo.append("MediaStore query itself failed: ${e.message}\n")
+            if (directFile != null) {
+                inputStream = directFile.inputStream()
+                fileSize = directFile.length()
+            } else {
+                val uri = findModelUriInDownloads()
+                if (uri == null) {
+                    return@withContext "Model file not found.\n\n" +
+                        "Direct file access: ${if (File("/storage/emulated/0/Download").canRead()) "Can read folder but no .gguf found" else "PERMISSION DENIED - tap 'Grant Storage Read Permission' above first"}\n\n" +
+                        "Make sure gemma-2-2b-it-lQ4_XS.gguf is in your Downloads folder."
                 }
-
-                return@withContext debugInfo.toString()
+                inputStream = context.contentResolver.openInputStream(uri)
+                    ?: return@withContext "Could not open file stream."
+                fileSize = context.contentResolver.openFileDescriptor(uri, "r")?.statSize ?: 0L
             }
-
-            val inputStream = context.contentResolver.openInputStream(uri)
-                ?: return@withContext "Could not open model file from Downloads."
-
-            val fileSize = context.contentResolver.openFileDescriptor(uri, "r")
-                ?.statSize ?: 0L
 
             val destFile = File(appModelPath)
             var copiedBytes = 0L
@@ -157,8 +147,7 @@ class LocalAiClient(private val context: Context) {
                         output.write(buffer, 0, bytes)
                         copiedBytes += bytes
                         if (fileSize > 0) {
-                            val progress = ((copiedBytes * 100) / fileSize).toInt()
-                            onProgress(progress.coerceIn(0, 99))
+                            onProgress(((copiedBytes * 100) / fileSize).toInt().coerceIn(0, 99))
                         }
                         bytes = input.read(buffer)
                     }
@@ -166,12 +155,12 @@ class LocalAiClient(private val context: Context) {
             }
 
             onProgress(100)
-            val sizeMB = destFile.length() / 1_048_576
-            "Model copied successfully! Size: ${sizeMB}MB. You can now enable On-Device AI."
+            "Model copied successfully! Size: ${destFile.length() / 1_048_576}MB"
 
+        } catch (e: SecurityException) {
+            "Permission denied: ${e.message}\nTap 'Grant Storage Read Permission' above and try again."
         } catch (e: Exception) {
-            Log.e("LocalAiClient", "Copy error", e)
-            "Copy failed with exception: ${e.javaClass.simpleName}: ${e.message}\nStack: ${e.stackTrace.take(3).joinToString()}"
+            "Copy failed: ${e.javaClass.simpleName}: ${e.message}"
         }
     }
 
