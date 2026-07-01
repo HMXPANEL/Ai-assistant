@@ -126,29 +126,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (apps.isEmpty()) "No apps found."
                     else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.name}" }
                 }
-                lower.startsWith("open ") -> {
-                    val result = AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("open ").trim())
-                    if (result.startsWith("App not found")) {
-                        agentLlmEngine.startTask(command, viewModelScope)
-                        return@launch
-                    }
-                    result
-                }
-                lower.startsWith("launch ") -> {
-                    val result = AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("launch ").trim())
-                    if (result.startsWith("App not found")) {
-                        agentLlmEngine.startTask(command, viewModelScope)
-                        return@launch
-                    }
-                    result
-                }
-                lower.startsWith("start ") -> {
-                    val result = AppLauncher.findAndLaunchApp(getApplication(), lower.removePrefix("start ").trim())
-                    if (result.startsWith("App not found")) {
-                        agentLlmEngine.startTask(command, viewModelScope)
-                        return@launch
-                    }
-                    result
+                lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ") -> {
+                    agentLlmEngine.startTask(command, viewModelScope)
+                    return@launch
                 }
                 lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• Read notifications — say 'read notifications'"
 
@@ -268,8 +248,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 else -> {
-                    agentLlmEngine.startTask(command, viewModelScope)
-                    return@launch
+                    val devicePrefixes = listOf("open", "send", "set", "turn", "call", "play", "book", "search", "delete", "close")
+                    if (devicePrefixes.any { lower.startsWith(it) } || lower.contains(" and ")) {
+                        agentLlmEngine.startTask(command, viewModelScope)
+                        return@launch
+                    }
+                    getLocalAiResponse(command)
                 }
             }
             addBotMessage(response)

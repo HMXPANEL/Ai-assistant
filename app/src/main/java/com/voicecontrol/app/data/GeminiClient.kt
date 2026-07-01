@@ -3,7 +3,9 @@ package com.voicecontrol.app.data
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.generationConfig
 
-class GeminiClient(private val apiKey: String) {
+enum class Mode { CHAT, AGENT }
+
+class GeminiClient(private val apiKey: String, private val mode: Mode = Mode.CHAT) {
     private var _model: GenerativeModel? = null
 
     private fun model(): GenerativeModel {
@@ -12,8 +14,8 @@ class GeminiClient(private val apiKey: String) {
                 modelName = "gemini-2.5-flash",
                 apiKey = apiKey,
                 generationConfig = generationConfig {
-                    temperature = 0.7f
-                    maxOutputTokens = 512
+                    temperature = if (mode == Mode.AGENT) 0.0f else 0.7f
+                    maxOutputTokens = if (mode == Mode.AGENT) 512 else 1024
                 }
             )
         }

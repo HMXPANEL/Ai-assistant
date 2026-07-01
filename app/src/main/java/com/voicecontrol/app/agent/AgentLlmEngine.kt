@@ -13,7 +13,7 @@ class AgentLlmEngine(private val context: Context) {
     private val geminiClient: GeminiClient?
         get() {
             val key = SecureKeyStore.getGeminiApiKey(context)
-            return if (key.isNullOrBlank()) null else GeminiClient(key)
+            return if (key.isNullOrBlank()) null else GeminiClient(key, Mode.AGENT)
         }
 
     companion object {
@@ -44,8 +44,10 @@ RULES:
     var onStatusUpdate: ((String) -> Unit)? = null
     private val conversationHistory = mutableListOf<Pair<String, String>>()
     private var currentJob: Job? = null
+    private var pinnedGoal = ""
 
     fun startTask(voiceCommand: String, scope: CoroutineScope) {
+        conversationHistory.clear()
         currentJob?.cancel()
         ttsManager.stop()
         currentJob = scope.launch {
@@ -77,6 +79,7 @@ RULES:
 
         onStatusUpdate?.invoke("🧠 Samajh raha hoon: \"$command\"")
         Log.d(TAG, "Starting task: $command")
+        pinnedGoal = command
 
         for (iteration in 1..MAX_ITERATIONS) {
             if (!isActive) return
@@ -94,11 +97,7 @@ RULES:
             val uiJson = UiTreeExtractor.toJson(uiNodes)
             Log.d(TAG, "UI nodes: ${uiNodes.size}")
 
-            val userMessage = if (iteration == 1) {
-                "CMD:$command\nUI:$uiJson"
-            } else {
-                "UI:$uiJson"
-            }
+            val userMessage = "GOAL:$pinnedGoal\nUI:$uiJson"
 
             onStatusUpdate?.invoke("🤔 Step $iteration...")
             val llmResponse = try {

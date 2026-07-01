@@ -24,27 +24,4 @@ object AppLauncher {
             }
             .sortedBy { it.name.lowercase() }
     }
-
-    fun findAndLaunchApp(context: Context, query: String): String {
-        val apps = getInstalledApps(context)
-        val queryLower = query.lowercase().trim()
-
-        val match = apps.firstOrNull { app ->
-            app.name.lowercase().contains(queryLower)
-        }
-
-        return if (match != null) {
-            val pm = context.packageManager
-            val launchIntent = pm.getLaunchIntentForPackage(match.packageName)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launchIntent)
-                "Opening ${match.name}..."
-            } else {
-                "Found ${match.name} but couldn't launch it."
-            }
-        } else {
-            "App not found on your device. Try 'show apps' to see all installed apps."
-        }
-    }
 }
