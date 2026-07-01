@@ -3,6 +3,7 @@ package com.voicecontrol.app.agent
 import android.content.Context
 import android.util.Log
 import com.voicecontrol.app.data.GeminiClient
+import com.voicecontrol.app.data.Mode
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.service.AutoAgentService
 import kotlinx.coroutines.*
