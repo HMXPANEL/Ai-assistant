@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +56,7 @@ fun ChatScreen(
     val inputText by viewModel.inputText.collectAsState()
     val isListening by viewModel.isListening.collectAsState()
     val isTtsEnabled by viewModel.isTtsEnabled.collectAsState()
+    val isAgentRunning by viewModel.isAgentRunning.collectAsState()
     val listState = rememberLazyListState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -179,28 +181,38 @@ fun ChatScreen(
                         )
                     )
 
-                    IconButton(onClick = { viewModel.sendMessage() }) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = "Send",
-                            tint = Color(0xFF1976D2)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            if (isListening) {
-                                viewModel.stopListening()
-                            } else {
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            }
+                    if (isAgentRunning) {
+                        IconButton(onClick = { viewModel.cancelAgent() }) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Stop agent",
+                                tint = Color.Red
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
-                            contentDescription = if (isListening) "Stop listening" else "Start listening",
-                            tint = if (isListening) Color.Red else Color(0xFF1976D2)
-                        )
+                    } else {
+                        IconButton(onClick = { viewModel.sendMessage() }) {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = "Send",
+                                tint = Color(0xFF1976D2)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                if (isListening) {
+                                    viewModel.stopListening()
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                                contentDescription = if (isListening) "Stop listening" else "Start listening",
+                                tint = if (isListening) Color.Red else Color(0xFF1976D2)
+                            )
+                        }
                     }
                 }
             }

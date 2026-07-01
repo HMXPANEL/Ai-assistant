@@ -1,12 +1,19 @@
 package com.voicecontrol.app.agent
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.voicecontrol.app.data.GeminiClient
 import com.voicecontrol.app.data.Mode
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.service.AutoAgentService
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AgentLlmEngine(private val context: Context) {
 
@@ -20,7 +27,7 @@ class AgentLlmEngine(private val context: Context) {
     companion object {
         private const val TAG = "AgentLlmEngine"
         private const val MAX_ITERATIONS = 30
-        private const val SCREEN_SETTLE_DELAY = 600L
+
         private const val MAX_HISTORY_MESSAGES = 10
 
         private const val SYSTEM_PROMPT = """You are Krinry, AI phone assistant. Full device control via AccessibilityService. Respond ONLY in valid JSON, no markdown.
@@ -45,6 +52,8 @@ RULES:
     var onStatusUpdate: ((String) -> Unit)? = null
     private val conversationHistory = mutableListOf<Pair<String, String>>()
     private var currentJob: Job? = null
+    private val _isRunning = MutableStateFlow(false)
+    val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
     private var pinnedGoal = ""
 
     fun startTask(voiceCommand: String, scope: CoroutineScope) {
@@ -64,6 +73,8 @@ RULES:
     }
 
     private suspend fun runAgentLoop(command: String) {
+        _isRunning.value = true
+        try {
         val client = geminiClient
         if (client == null) {
             onStatusUpdate?.invoke("❌ Gemini API key set nahi hai")
@@ -82,6 +93,16 @@ RULES:
         Log.d(TAG, "Starting task: $command")
         pinnedGoal = command
 
+        val currentTime = SimpleDateFormat("HH:mm", Locale.US).format(Date())
+        val currentDate = SimpleDateFormat("EEE, dd MMM yyyy", Locale.US).format(Date())
+        val pm = context.packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+        val installedApps = pm.queryIntentActivities(mainIntent, 0)
+            .map { it.loadLabel(pm).toString() }
+            .sorted()
+            .take(15)
+            .joinToString(", ")
+
         for (iteration in 1..MAX_ITERATIONS) {
             if (!isActive) return
 
@@ -98,7 +119,11 @@ RULES:
             val uiJson = UiTreeExtractor.toJson(uiNodes)
             Log.d(TAG, "UI nodes: ${uiNodes.size}")
 
-            val userMessage = "GOAL:$pinnedGoal\nUI:$uiJson"
+            val userMessage = if (iteration == 1) {
+                "GOAL:$pinnedGoal\nTIME:$currentTime\nDATE:$currentDate\nAPPS:$installedApps\nSCREEN:$uiJson"
+            } else {
+                "GOAL:$pinnedGoal\nSTEP:$iteration\nSCREEN:$uiJson"
+            }
 
             onStatusUpdate?.invoke("🤔 Step $iteration...")
             val llmResponse = try {
@@ -165,11 +190,14 @@ RULES:
                 }
             }
 
-            delay(SCREEN_SETTLE_DELAY)
+            waitForStableScreen(service)
         }
 
         onStatusUpdate?.invoke("⚠️ Bahut steps ho gaye ($MAX_ITERATIONS)")
         ttsManager.speak("Kaam time pe complete nahi ho paya. Chhota command try karo.")
+        } finally {
+            _isRunning.value = false
+        }
     }
 
     private fun getHindiAction(action: String): String {
@@ -195,6 +223,22 @@ RULES:
             "done" -> "Ho gaya"
             else -> action
         }
+    }
+
+    private suspend fun waitForStableScreen(service: AutoAgentService): List<UiNode> {
+        var previousHash: Int? = null
+        var stableNodes: List<UiNode> = emptyList()
+        withTimeoutOrNull(3000L) {
+            while (true) {
+                val rootNode = service.getRootNode()
+                stableNodes = if (rootNode != null) UiTreeExtractor.extractTree(rootNode) else emptyList()
+                val hash = stableNodes.joinToString { it.text + it.id }.hashCode()
+                if (previousHash != null && hash == previousHash) return@withTimeoutOrNull
+                previousHash = hash
+                delay(250)
+            }
+        }
+        return stableNodes
     }
 
     private val isActive: Boolean

@@ -69,6 +69,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val agentLlmEngine = AgentLlmEngine(getApplication()).also { engine ->
         engine.onStatusUpdate = { status -> addBotMessage(status) }
     }
+    val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
     private val _modelCopyProgress = MutableStateFlow(-1)
     val modelCopyProgress: StateFlow<Int> = _modelCopyProgress.asStateFlow()
     private val _modelCopyStatus = MutableStateFlow("")
@@ -258,6 +259,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             addBotMessage(response)
         }
+    }
+
+    fun cancelAgent() {
+        agentLlmEngine.cancelTask()
     }
 
     fun unloadModel() {
