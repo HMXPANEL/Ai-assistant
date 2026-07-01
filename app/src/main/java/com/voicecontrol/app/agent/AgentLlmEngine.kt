@@ -225,9 +225,9 @@ RULES:
         }
     }
 
-    private suspend fun waitForStableScreen(service: AutoAgentService): List<UiNode> {
+    private suspend fun waitForStableScreen(service: AutoAgentService): List<UiTreeExtractor.UiNode> {
         var previousHash: Int? = null
-        var stableNodes: List<UiNode> = emptyList()
+        var stableNodes: List<UiTreeExtractor.UiNode> = emptyList()
         withTimeoutOrNull(3000L) {
             while (true) {
                 val rootNode = service.getRootNode()
