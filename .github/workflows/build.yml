@@ -33,23 +33,33 @@ jobs:
       - name: Compile Kotlin
         id: compile
         run: |
-          ./gradlew compileDebugKotlin --stacktrace 2>&1 | tee /tmp/build.log
+          ./gradlew compileDebugKotlin --stacktrace 2>&1 | tee /tmp/compile.log
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      - name: Show build error log
-        if: failure()
+      - name: Show compile error log
+        if: failure() && steps.compile.outputs.exit_code != '0'
         run: |
           {
             echo "### Compilation Error Log"
             echo '```'
-            tail -200 /tmp/build.log
+            tail -200 /tmp/compile.log
             echo '```'
           } >> $GITHUB_STEP_SUMMARY
-          cat /tmp/build.log
 
       - name: Build Debug APK
-        if: success()
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee /tmp/assemble.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Show assemble error log
+        if: failure()
+        run: |
+          {
+            echo "### Assemble Error Log"
+            echo '```'
+            tail -200 /tmp/assemble.log
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
