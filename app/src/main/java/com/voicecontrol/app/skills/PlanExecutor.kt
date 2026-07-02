@@ -46,10 +46,11 @@ class PlanExecutor(
                     val stabilized = performAndVerify(step, recovered, liveNodes)
                     if (stabilized) { stepIndex++; continue }
                 }
+                // local recovery exhausted -> escalate
                 val patched = escalate(plan, stepIndex, "target not found: ${describeTarget(step.target)}", ++escalations, maxEscalations)
                     ?: return ExecutionResult.Failed("Element not found and AI could not recover", stepIndex)
                 plan = patched
-                stepIndex = 0
+                stepIndex = 0 // patched plan is relative to current screen; restart index bookkeeping at 0 of the NEW plan
                 continue
             }
 
@@ -70,6 +71,8 @@ class PlanExecutor(
 
         return ExecutionResult.Success
     }
+
+    // ---- step execution ----
 
     private fun performAndVerify(
         step: PlanStep,
@@ -105,6 +108,7 @@ class PlanExecutor(
     }
 
     private suspend fun attemptLocalRecovery(step: PlanStep, nodes: List<UiTreeExtractor.UiNode>): UiTreeExtractor.UiNode? {
+        // try scrolling down once, then re-resolve — covers "target is below the fold"
         ActionExecutor.execute(
             ActionExecutor.AgentAction("scroll_down", null, null, null, null, null, "in_progress", null, null, null),
             nodes
@@ -129,6 +133,8 @@ class PlanExecutor(
         return plan.copy(steps = patchedSteps)
     }
 
+    // ---- target resolution ----
+
     private fun resolveTarget(target: TargetDescriptor, nodes: List<UiTreeExtractor.UiNode>): UiTreeExtractor.UiNode? {
         target.byText?.let { text ->
             nodes.find { it.text.equals(text, ignoreCase = true) }?.let { return it }
@@ -143,11 +149,13 @@ class PlanExecutor(
                 .minByOrNull { it.bounds.top }
                 ?.let { return it }
         }
-        return null
+        return null // caller falls back to fallbackXY via tap_xy in AgentAction if present
     }
 
     private fun describeTarget(target: TargetDescriptor?): String =
         target?.byText ?: target?.byDesc ?: target?.byType ?: "unknown"
+
+    // ---- verification ----
 
     private suspend fun verify(rule: VerificationRule, nodesBefore: List<UiTreeExtractor.UiNode>): Boolean {
         val nodesAfter = waitForStableScreen()
@@ -161,6 +169,8 @@ class PlanExecutor(
     }
 
     private fun hash(nodes: List<UiTreeExtractor.UiNode>): Int = nodes.joinToString { it.text + it.contentDescription }.hashCode()
+
+    // ---- screen reading ----
 
     private fun readLiveTree(): List<UiTreeExtractor.UiNode> {
         val root = service.getRootNode() ?: return emptyList()

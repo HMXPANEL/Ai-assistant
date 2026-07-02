@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, feature/skills-system ]
   workflow_dispatch:
 
 jobs:

@@ -10,8 +10,8 @@ import org.json.JSONObject
  *
  * Three entry points map to the three moments the AI is actually needed:
  *  - generatePlan(): no matching skill exists, need a full plan from scratch
- *  - bindSkillParams(): a skill matched, just need to extract parameter
- *    values from the command (e.g. contact name) — much cheaper prompt than full planning
+ *  - bindSkillParams(): a skill matched, just need to extract parameter values
+ *    from the command (e.g. contact name) — much cheaper prompt than full planning
  *  - replan(): PlanExecutor got stuck and exhausted local recovery
  */
 class Planner(private val client: GeminiClient) {
