@@ -31,15 +31,21 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Compile Kotlin
-        run: ./gradlew compileDebugKotlin --stacktrace 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+        id: compile
+        run: |
+          ./gradlew compileDebugKotlin --stacktrace 2>&1 | tee /tmp/build.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      - name: Upload build log
+      - name: Show build error log
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: /tmp/build.log
-          retention-days: 1
+        run: |
+          {
+            echo "### Compilation Error Log"
+            echo '```'
+            tail -200 /tmp/build.log
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
+          cat /tmp/build.log
 
       - name: Build Debug APK
         if: success()
