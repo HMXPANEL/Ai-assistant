@@ -74,7 +74,7 @@ class PlanExecutor(
 
     // ---- step execution ----
 
-    private fun performAndVerify(
+    private suspend fun performAndVerify(
         step: PlanStep,
         resolvedNode: UiTreeExtractor.UiNode?,
         nodesBefore: List<UiTreeExtractor.UiNode>
