@@ -30,8 +30,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Compile Kotlin
+        run: ./gradlew compileDebugKotlin --stacktrace --info
+
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --info
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
