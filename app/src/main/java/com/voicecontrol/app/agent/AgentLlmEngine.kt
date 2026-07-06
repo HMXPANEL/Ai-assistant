@@ -174,7 +174,7 @@ RULES:
                 ttsManager.speak(speechText)
             }
 
-            if (action.status == "done" || action.action == "done") {
+            if (action.action == "done") {
                 onStatusUpdate?.invoke("✅ Ho gaya: ${action.reason ?: "Task complete"}")
                 delay(2500)
                 return
