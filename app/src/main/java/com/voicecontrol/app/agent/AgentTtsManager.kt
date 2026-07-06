@@ -26,6 +26,24 @@ class AgentTtsManager(context: Context) {
         tts?.stop()
     }
 
+    suspend fun speakAndAwait(text: String) {
+        if (!isReady || text.isBlank()) return
+        val utteranceId = "utt_${System.currentTimeMillis()}"
+        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) {
+                    if (id == utteranceId && cont.isActive) cont.resume(Unit) {}
+                }
+                override fun onError(id: String?) {
+                    if (id == utteranceId && cont.isActive) cont.resume(Unit) {}
+                }
+            })
+            val params = android.os.Bundle()
+            tts?.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        }
+    }
+
     fun shutdown() {
         tts?.stop()
         tts?.shutdown()

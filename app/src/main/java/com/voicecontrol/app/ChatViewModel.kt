@@ -32,11 +32,16 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
+
+    companion object {
+        const val ENABLE_WAKE_WORD = true
+    }
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
@@ -88,6 +93,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             isTtsReady = (status == TextToSpeech.SUCCESS)
         }
         addBotMessage("Hello! I'm your AI assistant. Try 'open YouTube', 'send message to [name] saying [text]', 'set alarm at 7am', 'read messages', or 'flashlight on'.")
+
+        viewModelScope.launch {
+            com.voicecontrol.app.wake.WakeEventBus.wakeDetected.collect {
+                if (!ENABLE_WAKE_WORD) return@collect
+                handleWakeDetected()
+            }
+        }
     }
 
     fun saveGeminiApiKey(key: String) {
@@ -312,6 +324,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             override fun onError(error: Int) {
                 _isListening.value = false
                 addBotMessage("Didn't catch that. Please try again.")
+                com.voicecontrol.app.wake.WakeListenerService.resumeAfterCommand()
             }
             override fun onResults(results: Bundle?) {
                 _isListening.value = false
@@ -320,9 +333,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (spokenText != null) {
                     addUserMessage(spokenText)
                     conversationMemory.saveMessage("user", spokenText)
-                    processCommand(spokenText)
+                    viewModelScope.launch {
+                        processCommand(spokenText)
+                        if (agentLlmEngine.isRunning.value) {
+                            agentLlmEngine.isRunning.first { running -> !running }
+                        }
+                        com.voicecontrol.app.wake.WakeListenerService.resumeAfterCommand()
+                    }
                 } else {
                     addBotMessage("Couldn't understand. Please try again.")
+                    com.voicecontrol.app.wake.WakeListenerService.resumeAfterCommand()
                 }
             }
             override fun onPartialResults(partialResults: Bundle?) {}
@@ -341,6 +361,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun stopListening() {
         speechRecognizer?.stopListening()
         _isListening.value = false
+    }
+
+    private suspend fun handleWakeDetected() {
+        val ttsManager = (getApplication<Application>() as com.voicecontrol.app.VoiceControlApp).sharedTtsManager
+        ttsManager.speakAndAwait("Yes sir, kaise madad karu?")
+        startListening()
     }
 
     fun toggleTts() {

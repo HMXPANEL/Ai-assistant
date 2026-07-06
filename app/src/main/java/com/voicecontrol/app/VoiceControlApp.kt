@@ -34,6 +34,10 @@ internal fun appendToInferenceErrors(context: Context, header: String, t: Throwa
 
 class VoiceControlApp : Application() {
 
+    val sharedTtsManager: com.voicecontrol.app.agent.AgentTtsManager by lazy {
+        com.voicecontrol.app.agent.AgentTtsManager(this)
+    }
+
     override fun onCreate() {
         super.onCreate()
         registerComponentCallbacks(object : ComponentCallbacks2 {

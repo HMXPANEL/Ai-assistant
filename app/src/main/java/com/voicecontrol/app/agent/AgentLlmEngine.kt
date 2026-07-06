@@ -55,13 +55,16 @@ RULES:
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
     private var pinnedGoal = ""
+    private var taskGeneration = 0
 
     fun startTask(voiceCommand: String, scope: CoroutineScope) {
         conversationHistory.clear()
         currentJob?.cancel()
         ttsManager.stop()
+        _isRunning.value = true
+        val myGeneration = ++taskGeneration
         currentJob = scope.launch {
-            runAgentLoop(voiceCommand)
+            runAgentLoop(voiceCommand, myGeneration)
         }
     }
 
@@ -72,8 +75,7 @@ RULES:
         onStatusUpdate?.invoke("⏹ Ruk gaya")
     }
 
-    private suspend fun runAgentLoop(command: String) {
-        _isRunning.value = true
+    private suspend fun runAgentLoop(command: String, myGeneration: Int) {
         try {
         val client = geminiClient
         if (client == null) {
@@ -196,7 +198,9 @@ RULES:
         onStatusUpdate?.invoke("⚠️ Bahut steps ho gaye ($MAX_ITERATIONS)")
         ttsManager.speak("Kaam time pe complete nahi ho paya. Chhota command try karo.")
         } finally {
-            _isRunning.value = false
+            if (myGeneration == taskGeneration) {
+                _isRunning.value = false
+            }
         }
     }
 

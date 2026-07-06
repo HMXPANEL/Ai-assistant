@@ -1,6 +1,8 @@
 package com.voicecontrol.app.ui
 
 import android.Manifest
+import android.content.Intent
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -42,8 +44,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.voicecontrol.app.ChatViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,6 +62,7 @@ fun ChatScreen(
     val isTtsEnabled by viewModel.isTtsEnabled.collectAsState()
     val isAgentRunning by viewModel.isAgentRunning.collectAsState()
     val listState = rememberLazyListState()
+    val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -69,7 +74,12 @@ fun ChatScreen(
 
     val generalPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
+    ) { results ->
+        if (results[Manifest.permission.RECORD_AUDIO] == true) {
+            val intent = Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java)
+            ContextCompat.startForegroundService(context, intent)
+        }
+    }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -83,14 +93,17 @@ fun ChatScreen(
     }
 
     LaunchedEffect(Unit) {
-        generalPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.READ_CONTACTS,
-                Manifest.permission.READ_CALENDAR,
-                Manifest.permission.WRITE_CALENDAR,
-                Manifest.permission.CAMERA
-            )
+        val permissions = mutableListOf(
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.READ_CALENDAR,
+            Manifest.permission.WRITE_CALENDAR,
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
         )
+        if (Build.VERSION.SDK_INT >= 33) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        generalPermissionLauncher.launch(permissions.toTypedArray())
     }
 
     LaunchedEffect(viewModel) {
