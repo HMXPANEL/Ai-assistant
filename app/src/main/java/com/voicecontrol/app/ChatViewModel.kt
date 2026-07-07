@@ -57,6 +57,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGeminiEnabled = MutableStateFlow(true)
     val isGeminiEnabled: StateFlow<Boolean> = _isGeminiEnabled.asStateFlow()
 
+    private val _isWakeWordEnabled = MutableStateFlow(false)
+    val isWakeWordEnabled: StateFlow<Boolean> = _isWakeWordEnabled.asStateFlow()
+
     private val _geminiApiKey = MutableStateFlow("")
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
@@ -64,6 +67,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
+
+    private val _requestWakePermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val requestWakePermission: SharedFlow<Unit> = _requestWakePermission.asSharedFlow()
 
     private val conversationMemory = ConversationMemory(getApplication())
     private val agentLlmEngine = AgentLlmEngine(getApplication()).also { engine ->
@@ -87,7 +93,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             com.voicecontrol.app.wake.WakeEventBus.wakeDetected.collect {
-                if (!ENABLE_WAKE_WORD) return@collect
+                if (!_isWakeWordEnabled.value) return@collect
                 handleWakeDetected()
             }
         }
@@ -340,6 +346,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleGemini() {
         _isGeminiEnabled.value = !_isGeminiEnabled.value
+    }
+
+    fun toggleWakeWord() {
+        val newState = !_isWakeWordEnabled.value
+        _isWakeWordEnabled.value = newState
+        if (newState) {
+            _requestWakePermission.tryEmit(Unit)
+        } else {
+            stopWakeService()
+        }
+    }
+
+    fun startWakeServiceFromPermission() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java)
+        ContextCompat.startForegroundService(context, intent)
+    }
+
+    private fun stopWakeService() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java).apply {
+            action = com.voicecontrol.app.wake.WakeListenerService.ACTION_STOP
+        }
+        ContextCompat.startForegroundService(context, intent)
     }
 
     fun clearHistory() {

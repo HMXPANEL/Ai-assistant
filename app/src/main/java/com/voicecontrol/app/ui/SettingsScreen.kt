@@ -60,6 +60,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     val isGeminiEnabled by viewModel.isGeminiEnabled.collectAsState()
+    val isWakeWordEnabled by viewModel.isWakeWordEnabled.collectAsState()
     val savedApiKey by viewModel.geminiApiKey.collectAsState()
 
     Scaffold(
@@ -105,6 +106,27 @@ fun SettingsScreen(
                 )
             ) {
                 Text("Clear Conversation History")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Wake Word", style = MaterialTheme.typography.titleMedium)
+                            Text("'Hey Max' sunne ke liye background mein", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = isWakeWordEnabled,
+                            onCheckedChange = { viewModel.toggleWakeWord() }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

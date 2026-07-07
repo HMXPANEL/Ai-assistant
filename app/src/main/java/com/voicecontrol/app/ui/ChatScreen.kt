@@ -72,12 +72,11 @@ fun ChatScreen(
         }
     }
 
-    val generalPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        if (results[Manifest.permission.RECORD_AUDIO] == true) {
-            val intent = Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java)
-            ContextCompat.startForegroundService(context, intent)
+    val wakePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startWakeServiceFromPermission()
         }
     }
 
@@ -92,18 +91,10 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        val permissions = mutableListOf(
-            Manifest.permission.READ_CONTACTS,
-            Manifest.permission.READ_CALENDAR,
-            Manifest.permission.WRITE_CALENDAR,
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-        )
-        if (Build.VERSION.SDK_INT >= 33) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+    LaunchedEffect(viewModel) {
+        viewModel.requestWakePermission.collect {
+            wakePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
-        generalPermissionLauncher.launch(permissions.toTypedArray())
     }
 
     LaunchedEffect(viewModel) {
