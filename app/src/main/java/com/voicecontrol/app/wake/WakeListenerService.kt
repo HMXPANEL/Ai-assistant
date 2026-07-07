@@ -46,7 +46,7 @@ class WakeListenerService : Service() {
     }
 
     private var recognizer: SpeechRecognizer? = null
-    private var state: WakeState = WakeState.IDLE_WAKE_LISTENING
+    private var isGreeting = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var restartJob: Job? = null
@@ -74,12 +74,8 @@ class WakeListenerService : Service() {
         super.onDestroy()
     }
 
-    private fun transitionTo(newState: WakeState) {
-        state = newState
-    }
-
     private fun startWakeLoop() {
-        transitionTo(WakeState.IDLE_WAKE_LISTENING)
+        isGreeting = false
         startRecognitionSession()
     }
 
@@ -91,7 +87,7 @@ class WakeListenerService : Service() {
                 override fun onResults(results: Bundle?) {
                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     val transcript = matches?.firstOrNull() ?: ""
-                    if (state == WakeState.IDLE_WAKE_LISTENING && WakePhraseMatcher.containsWakePhrase(transcript)) {
+                    if (!isGreeting && WakePhraseMatcher.containsWakePhrase(transcript)) {
                         onWakeDetected()
                     } else {
                         restartIfIdle()
@@ -118,11 +114,11 @@ class WakeListenerService : Service() {
     }
 
     private fun restartIfIdle() {
-        if (state != WakeState.IDLE_WAKE_LISTENING) return
+        if (isGreeting) return
         restartJob?.cancel()
         restartJob = scope.launch {
             delay(300L)
-            if (state == WakeState.IDLE_WAKE_LISTENING) startRecognitionSession()
+            if (!isGreeting) startRecognitionSession()
         }
     }
 
@@ -130,7 +126,7 @@ class WakeListenerService : Service() {
         recognizer?.stopListening()
         recognizer?.destroy()
         recognizer = null
-        transitionTo(WakeState.GREETING)
+        isGreeting = true
         playBeep()
         WakeEventBus.emitWake()
         // Handoff ends here. ChatViewModel takes over: speaks the greeting via
@@ -139,10 +135,10 @@ class WakeListenerService : Service() {
     }
 
     private fun resumeWakeListening() {
-        transitionTo(WakeState.IDLE_WAKE_LISTENING)
+        isGreeting = false
         scope.launch {
             delay(500L)
-            if (state == WakeState.IDLE_WAKE_LISTENING) startRecognitionSession()
+            if (!isGreeting) startRecognitionSession()
         }
     }
 

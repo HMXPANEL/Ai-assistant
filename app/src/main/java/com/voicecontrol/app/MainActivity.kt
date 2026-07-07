@@ -10,7 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.voicecontrol.app.ui.ChatScreen
 import com.voicecontrol.app.ui.SettingsScreen
-import com.voicecontrol.app.ui.theme.Theme.VoiceControl
+import com.voicecontrol.app.ui.theme.VoiceControlTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            VoiceControl {
+            VoiceControlTheme {
                 var showSettings by remember { mutableStateOf(false) }
 
                 if (showSettings) {

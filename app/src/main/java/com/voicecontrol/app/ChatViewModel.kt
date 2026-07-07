@@ -8,7 +8,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,7 +20,6 @@ import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
 import com.voicecontrol.app.device.ContactsHelper
 import com.voicecontrol.app.device.DeviceController
-import com.voicecontrol.app.device.NotificationPermissionHelper
 import com.voicecontrol.app.device.NotificationService
 import com.voicecontrol.app.device.SmsManager
 import com.voicecontrol.app.model.Message
@@ -37,10 +36,6 @@ import java.util.Calendar
 
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
-
-    companion object {
-        const val ENABLE_WAKE_WORD = true
-    }
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
@@ -78,17 +73,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
 
     private var speechRecognizer: SpeechRecognizer? = null
-    private var tts: TextToSpeech? = null
-    private var isTtsReady = false
 
     init {
         val savedKey = SecureKeyStore.getGeminiApiKey(getApplication()) ?: ""
         _geminiApiKey.value = savedKey
         if (savedKey.isNotBlank()) geminiClient = GeminiClient(savedKey)
 
-        tts = TextToSpeech(getApplication()) { status ->
-            isTtsReady = (status == TextToSpeech.SUCCESS)
-        }
         addBotMessage("Hello! I'm your AI assistant. Try 'open YouTube', 'send message to [name] saying [text]', 'set alarm at 7am', 'read messages', or 'flashlight on'.")
 
         viewModelScope.launch {
@@ -158,7 +148,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 lower == "read notifications" || lower == "show notifications" || lower == "any notifications" || lower == "what's new" || lower == "whats new" -> {
-                    if (!NotificationPermissionHelper.isNotificationAccessGranted(getApplication()))
+                    val ctx = getApplication<Application>()
+                    if (!NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName))
                         "Please grant Notification Access: go to Settings > Notifications > Notification Access > enable AI Assistant."
                     else NotificationService.getSummary()
                 }
@@ -366,21 +357,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun stopWakeService() {
         val context = getApplication<Application>()
-        val intent = Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java).apply {
-            action = com.voicecontrol.app.wake.WakeListenerService.ACTION_STOP
-        }
-        ContextCompat.startForegroundService(context, intent)
+        context.stopService(Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java))
     }
 
     fun clearHistory() {
         conversationMemory.clearHistory()
         _messages.value = emptyList()
-    }
-
-    private fun speak(text: String) {
-        if (isTtsReady && _isTtsEnabled.value) {
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
-        }
     }
 
     fun addSystemMessage(text: String) {
@@ -400,7 +382,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun addBotMessage(text: String) {
         _messages.value = _messages.value + Message(text = text, isUser = false)
-        speak(text)
+        if (_isTtsEnabled.value) {
+            val app = getApplication<VoiceControlApp>()
+            if (app::sharedTtsManager.isInitialized) app.sharedTtsManager.speak(text)
+        }
         conversationMemory.saveMessage("assistant", text)
     }
 
@@ -449,7 +434,5 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         speechRecognizer?.destroy()
-        tts?.stop()
-        tts?.shutdown()
     }
 }

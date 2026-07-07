@@ -13,11 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Green = Color(0xFF00E676)
-private val DarkGreen = Color(0xFF008069)
-private val DarkBackground = Color(0xFF111B21)
-private val DarkSurface = Color(0xFF202C33)
-private val DarkSurfaceVariant = Color(0xFF2A3942)
 private val LightBackground = Color(0xFFF0F2F5)
 private val LightSurface = Color.White
 
@@ -42,14 +37,12 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp)
 )
 
-object Theme {
-    @Composable
-    fun VoiceControl(content: @Composable () -> Unit) {
-        MaterialTheme(
-            colorScheme = LightColorScheme,
-            typography = AppTypography,
-            shapes = AppShapes,
-            content = content
-        )
-    }
+@Composable
+fun VoiceControlTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = LightColorScheme,
+        typography = AppTypography,
+        shapes = AppShapes,
+        content = content
+    )
 }

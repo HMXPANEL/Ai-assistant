@@ -65,12 +65,8 @@ fun ChatScreen(
     val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            viewModel.startListening()
-        }
-    }
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> }
 
     val wakePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -89,6 +85,20 @@ fun ChatScreen(
                 "SMS permission denied. On your phone: Settings > Apps > AI Assistant > Permissions > SMS > Allow"
             )
         }
+    }
+
+    LaunchedEffect(Unit) {
+        val perms = mutableListOf(
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.READ_CALENDAR,
+            Manifest.permission.WRITE_CALENDAR,
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
+        if (Build.VERSION.SDK_INT >= 33) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        permissionLauncher.launch(perms.toTypedArray())
     }
 
     LaunchedEffect(viewModel) {

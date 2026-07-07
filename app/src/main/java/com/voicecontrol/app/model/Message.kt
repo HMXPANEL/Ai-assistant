@@ -1,11 +1,9 @@
 package com.voicecontrol.app.model
 
-import java.util.concurrent.atomic.AtomicLong
-
-private val messageIdCounter = AtomicLong(0)
+private var nextId = 0L
 
 data class Message(
-    val id: Long = messageIdCounter.incrementAndGet(),
+    val id: Long = ++nextId,
     val text: String,
     val isUser: Boolean,
     val timestamp: Long = System.currentTimeMillis()
