@@ -2,6 +2,7 @@ package com.voicecontrol.app
 
 import android.Manifest
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -75,9 +76,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var speechRecognizer: SpeechRecognizer? = null
 
     init {
-        val savedKey = SecureKeyStore.getGeminiApiKey(getApplication()) ?: ""
+        val ctx = getApplication<Application>()
+        val savedKey = SecureKeyStore.getGeminiApiKey(ctx) ?: ""
         _geminiApiKey.value = savedKey
         if (savedKey.isNotBlank()) geminiClient = GeminiClient(savedKey)
+
+        val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        _isWakeWordEnabled.value = prefs.getBoolean("wake_word_enabled", false)
+        if (_isWakeWordEnabled.value) {
+            _requestWakePermission.tryEmit(Unit)
+        }
 
         addBotMessage("Hello! I'm your AI assistant. Try 'open YouTube', 'send message to [name] saying [text]', 'set alarm at 7am', 'read messages', or 'flashlight on'.")
 
@@ -342,6 +350,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleWakeWord() {
         val newState = !_isWakeWordEnabled.value
         _isWakeWordEnabled.value = newState
+        getApplication<Application>()
+            .getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("wake_word_enabled", newState)
+            .apply()
         if (newState) {
             _requestWakePermission.tryEmit(Unit)
         } else {
