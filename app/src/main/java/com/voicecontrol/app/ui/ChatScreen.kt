@@ -217,7 +217,7 @@ fun ChatScreen(
                                 if (isListening) {
                                     viewModel.stopListening()
                                 } else {
-                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
                                 }
                             }
                         ) {

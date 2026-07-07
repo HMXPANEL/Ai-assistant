@@ -383,8 +383,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun addBotMessage(text: String) {
         _messages.value = _messages.value + Message(text = text, isUser = false)
         if (_isTtsEnabled.value) {
-            val app = getApplication<VoiceControlApp>()
-            if (app::sharedTtsManager.isInitialized) app.sharedTtsManager.speak(text)
+            getApplication<VoiceControlApp>().sharedTtsManager.speak(text)
         }
         conversationMemory.saveMessage("assistant", text)
     }
