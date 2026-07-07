@@ -243,9 +243,11 @@ RULES:
 
     private fun findRequestedAppStatus(command: String): String {
         val lower = command.lowercase()
+        // compound command (has "and") → let Gemini handle it
+        if (lower.contains(" and ")) return ""
         val prefixes = listOf("open ", "launch ", "start ")
         val prefix = prefixes.firstOrNull { lower.startsWith(it) } ?: return ""
-        val appName = command.removePrefix(prefix).trim()
+        val appName = lower.removePrefix(prefix).trim()
         if (appName.isBlank()) return ""
 
         val pm = context.packageManager
@@ -253,18 +255,16 @@ RULES:
         val activities = pm.queryIntentActivities(intent, 0)
 
         val match = activities.firstOrNull { info ->
-            val label = info.loadLabel(pm).toString()
-            label.equals(appName, ignoreCase = true) ||
-            label.contains(appName, ignoreCase = true) ||
-            appName.contains(label, ignoreCase = true) ||
-            info.activityInfo.packageName.contains(appName, ignoreCase = true)
+            val label = info.loadLabel(pm).toString().lowercase()
+            label == appName || label.contains(appName) || appName.contains(label) ||
+            info.activityInfo.packageName.lowercase().contains(appName)
         }
 
         return if (match != null) {
             val foundName = match.loadLabel(pm).toString()
             "APP_FOUND:\"$foundName\" — Installed on device. Use open_app with app_name:\"$foundName\"."
         } else {
-            "APP_NOT_FOUND:\"$appName\" — Not installed on this device. Tell user it's not found and ask if they want to install it."
+            "APP_NOT_FOUND:\"$appName\""
         }
     }
 
