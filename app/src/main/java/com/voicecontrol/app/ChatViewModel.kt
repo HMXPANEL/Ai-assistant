@@ -83,7 +83,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _isWakeWordEnabled.value = prefs.getBoolean("wake_word_enabled", false)
-        if (_isWakeWordEnabled.value) {
+        if (_isWakeWordEnabled.value && hasRecordAudioPermission()) {
+            ContextCompat.startForegroundService(ctx, Intent(ctx, com.voicecontrol.app.wake.WakeListenerService::class.java))
+        } else if (_isWakeWordEnabled.value) {
             _requestWakePermission.tryEmit(Unit)
         }
 
@@ -350,17 +352,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleWakeWord() {
         val newState = !_isWakeWordEnabled.value
         _isWakeWordEnabled.value = newState
-        getApplication<Application>()
-            .getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val ctx = getApplication<Application>()
+        ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
             .edit()
             .putBoolean("wake_word_enabled", newState)
             .apply()
         if (newState) {
-            _requestWakePermission.tryEmit(Unit)
+            if (hasRecordAudioPermission()) {
+                ContextCompat.startForegroundService(ctx, Intent(ctx, com.voicecontrol.app.wake.WakeListenerService::class.java))
+            } else {
+                _requestWakePermission.tryEmit(Unit)
+            }
         } else {
             stopWakeService()
         }
     }
+
+    private fun hasRecordAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     fun startWakeServiceFromPermission() {
         val context = getApplication<Application>()
