@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,7 +22,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            VoiceControlTheme {
+            val isDarkMode by viewModel.isDarkMode.collectAsState()
+            VoiceControlTheme(darkTheme = isDarkMode) {
                 var showSettings by remember { mutableStateOf(false) }
 
                 if (showSettings) {

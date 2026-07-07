@@ -5,7 +5,9 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -56,6 +58,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isWakeWordEnabled = MutableStateFlow(false)
     val isWakeWordEnabled: StateFlow<Boolean> = _isWakeWordEnabled.asStateFlow()
 
+    private val _isDarkMode = MutableStateFlow(false)
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
     private val _geminiApiKey = MutableStateFlow("")
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
@@ -83,6 +88,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _isWakeWordEnabled.value = prefs.getBoolean("wake_word_enabled", false)
+        _isDarkMode.value = prefs.getBoolean("dark_mode", false)
         if (_isWakeWordEnabled.value && hasRecordAudioPermission()) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, com.voicecontrol.app.wake.WakeListenerService::class.java))
         } else if (_isWakeWordEnabled.value) {
@@ -358,6 +364,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .putBoolean("wake_word_enabled", newState)
             .apply()
         if (newState) {
+            try {
+                ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${ctx.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            } catch (_: Exception) {}
             if (hasRecordAudioPermission()) {
                 ContextCompat.startForegroundService(ctx, Intent(ctx, com.voicecontrol.app.wake.WakeListenerService::class.java))
             } else {
@@ -375,6 +387,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val context = getApplication<Application>()
         val intent = Intent(context, com.voicecontrol.app.wake.WakeListenerService::class.java)
         ContextCompat.startForegroundService(context, intent)
+    }
+
+    fun toggleDarkMode() {
+        val newState = !_isDarkMode.value
+        _isDarkMode.value = newState
+        getApplication<Application>()
+            .getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("dark_mode", newState)
+            .apply()
     }
 
     private fun stopWakeService() {

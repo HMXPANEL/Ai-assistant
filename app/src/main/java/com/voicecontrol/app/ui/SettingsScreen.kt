@@ -61,6 +61,7 @@ fun SettingsScreen(
 
     val isGeminiEnabled by viewModel.isGeminiEnabled.collectAsState()
     val isWakeWordEnabled by viewModel.isWakeWordEnabled.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
     val savedApiKey by viewModel.geminiApiKey.collectAsState()
 
     Scaffold(
@@ -124,6 +125,22 @@ fun SettingsScreen(
                         Switch(
                             checked = isWakeWordEnabled,
                             onCheckedChange = { viewModel.toggleWakeWord() }
+                        )
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Dark Mode")
+                        Switch(
+                            checked = isDarkMode,
+                            onCheckedChange = { viewModel.toggleDarkMode() }
                         )
                     }
                 }
