@@ -16,8 +16,6 @@ class AutoAgentService : AccessibilityService() {
         @Volatile
         var instance: AutoAgentService? = null
             private set
-
-        fun isRunning(): Boolean = instance != null
     }
 
     private var screenWidth = 1080
@@ -96,18 +94,6 @@ class AutoAgentService : AccessibilityService() {
             false
         } catch (e: Exception) {
             Log.e(TAG, "Click failed", e)
-            false
-        }
-    }
-
-    fun clickAtBounds(bounds: Rect): Boolean {
-        return try {
-            val cx = bounds.centerX().toFloat()
-            val cy = bounds.centerY().toFloat()
-            tapAt(cx, cy)
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "clickAtBounds failed", e)
             false
         }
     }
@@ -239,6 +225,9 @@ class AutoAgentService : AccessibilityService() {
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, 800))
             .build()
-        dispatchGesture(gesture, null, null)
+        dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) { Log.d(TAG, "Long press completed at ($safeX, $safeY)") }
+            override fun onCancelled(gestureDescription: GestureDescription?) { Log.w(TAG, "Long press cancelled at ($safeX, $safeY)") }
+        }, null)
     }
 }

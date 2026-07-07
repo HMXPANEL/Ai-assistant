@@ -65,9 +65,6 @@ dependencies {
     // EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // llama.cpp for GGUF on-device LLM (Maven Central)
-    implementation("de.kherud:llama:4.2.0")
-
     // Google AI client SDK for Gemini
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 

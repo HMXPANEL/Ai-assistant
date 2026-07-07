@@ -9,6 +9,7 @@ class ConversationMemory(context: Context) {
 
     private val file = File(context.filesDir, "conversation_history.json")
 
+    @Synchronized
     fun saveMessage(role: String, text: String) {
         val entries = loadEntries()
         val entry = JSONObject().apply {
@@ -20,6 +21,7 @@ class ConversationMemory(context: Context) {
         file.writeText(entries.toString())
     }
 
+    @Synchronized
     fun getHistory(): List<Pair<String, String>> {
         val entries = loadEntries()
         val total = entries.length()
@@ -30,10 +32,12 @@ class ConversationMemory(context: Context) {
         }
     }
 
+    @Synchronized
     fun clearHistory() {
         file.delete()
     }
 
+    @Synchronized
     private fun loadEntries(): JSONArray {
         return try {
             if (file.exists()) JSONArray(file.readText()) else JSONArray()

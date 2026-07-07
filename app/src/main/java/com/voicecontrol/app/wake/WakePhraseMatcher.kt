@@ -13,7 +13,9 @@ object WakePhraseMatcher {
 
     private val CANDIDATES = listOf(
         "hey max", "hey mac", "hi max", "hemax", "e max", "hey mags", "a max",
-        "हे मैक्स", "हाय मैक्स", "हेय मैक्स", "हे मैक", "हेमैक्स", "अ मैक्स"
+        "hey max", "hay max", "he max", "eh max", "h max", "yeah max",
+        "हे मैक्स", "हाय मैक्स", "हेय मैक्स", "हे मैक", "हेमैक्स", "अ मैक्स",
+        "हे मिक्स", "है मैक्स", "है मैक", "हे मख्स", "हय मैक्स", "ए मैक्स"
     )
 
     private const val MAX_DISTANCE = 2

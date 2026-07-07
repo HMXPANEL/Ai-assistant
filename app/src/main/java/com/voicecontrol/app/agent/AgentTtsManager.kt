@@ -43,10 +43,4 @@ class AgentTtsManager(context: Context) {
             tts?.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         }
     }
-
-    fun shutdown() {
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
-    }
 }

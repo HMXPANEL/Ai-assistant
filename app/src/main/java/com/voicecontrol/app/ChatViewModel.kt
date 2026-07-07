@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -17,7 +16,6 @@ import com.voicecontrol.app.agent.AgentLlmEngine
 import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.data.GeminiClient
-import com.voicecontrol.app.data.LocalAiClient
 import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
 import com.voicecontrol.app.device.ContactsHelper
@@ -32,6 +30,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -55,9 +54,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isTtsEnabled = MutableStateFlow(true)
     val isTtsEnabled: StateFlow<Boolean> = _isTtsEnabled.asStateFlow()
 
-    private val _isLocalAiEnabled = MutableStateFlow(false)
-    val isLocalAiEnabled: StateFlow<Boolean> = _isLocalAiEnabled.asStateFlow()
-
     private val _isGeminiEnabled = MutableStateFlow(true)
     val isGeminiEnabled: StateFlow<Boolean> = _isGeminiEnabled.asStateFlow()
 
@@ -70,15 +66,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
 
     private val conversationMemory = ConversationMemory(getApplication())
-    internal val localAiClient = LocalAiClient(getApplication()) // kept for future on-device use
     private val agentLlmEngine = AgentLlmEngine(getApplication()).also { engine ->
         engine.onStatusUpdate = { status -> addBotMessage(status) }
     }
     val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
-    private val _modelCopyProgress = MutableStateFlow(-1)
-    val modelCopyProgress: StateFlow<Int> = _modelCopyProgress.asStateFlow()
-    private val _modelCopyStatus = MutableStateFlow("")
-    val modelCopyStatus: StateFlow<String> = _modelCopyStatus.asStateFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
@@ -108,8 +99,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         geminiClient = GeminiClient(key)
     }
 
-    fun isModelAvailable(): Boolean = localAiClient.isModelAvailable()
-
     fun onInputChange(text: String) {
         _inputText.value = text
     }
@@ -135,9 +124,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             val response = when {
                 lower == "show apps" || lower == "list apps" || lower == "show installed apps" -> {
-                    val apps = AppLauncher.getInstalledApps(getApplication())
+                    val apps = getInstalledApps()
                     if (apps.isEmpty()) "No apps found."
-                    else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.name}" }
+                    else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.first}" }
                 }
                 lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ") -> {
                     agentLlmEngine.startTask(command, viewModelScope)
@@ -146,32 +135,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• Read notifications — say 'read notifications'"
 
                 lower.startsWith("send message to ") || lower.startsWith("send sms to ") -> {
-                    if (!hasSmsPermission()) {
-                        _requestSmsPermission.tryEmit(Unit)
-                        "Requesting SMS permission... If the dialog doesn't appear, go to Settings > Apps > AI Assistant > Permissions > SMS"
-                    } else {
-                        val parts = lower.removePrefix("send message to ").removePrefix("send sms to ").split(" saying ", limit = 2)
-                        if (parts.size < 2) "Usage: 'send message to [name] saying [message]'."
-                        else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
-                    }
+                    if (!checkSmsPermission()) return@launch
+                    val parts = lower.removePrefix("send message to ").removePrefix("send sms to ").split(" saying ", limit = 2)
+                    if (parts.size < 2) "Usage: 'send message to [name] saying [message]'."
+                    else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
                 }
                 lower.startsWith("text ") -> {
-                    if (!hasSmsPermission()) {
-                        _requestSmsPermission.tryEmit(Unit)
-                        "Requesting SMS permission... If the dialog doesn't appear, go to Settings > Apps > AI Assistant > Permissions > SMS"
-                    } else {
-                        val parts = lower.removePrefix("text ").trim().split(" ", limit = 2)
-                        if (parts.size < 2) "Usage: 'text [name] [message]'."
-                        else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
-                    }
+                    if (!checkSmsPermission()) return@launch
+                    val parts = lower.removePrefix("text ").trim().split(" ", limit = 2)
+                    if (parts.size < 2) "Usage: 'text [name] [message]'."
+                    else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
                 }
                 lower == "read messages" || lower == "show messages" || lower == "read sms" -> {
-                    if (!hasSmsPermission()) {
-                        _requestSmsPermission.tryEmit(Unit)
-                        "Requesting SMS permission... If the dialog doesn't appear, go to Settings > Apps > AI Assistant > Permissions > SMS"
-                    } else {
-                        SmsManager.readRecentSms(getApplication())
-                    }
+                    if (!checkSmsPermission()) return@launch
+                    SmsManager.readRecentSms(getApplication())
                 }
 
                 lower == "read notifications" || lower == "show notifications" || lower == "any notifications" || lower == "what's new" || lower == "whats new" -> {
@@ -266,7 +243,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         agentLlmEngine.startTask(command, viewModelScope)
                         return@launch
                     }
-                    getLocalAiResponse(command)
+                    getAiResponse(command)
                 }
             }
             addBotMessage(response)
@@ -277,29 +254,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         agentLlmEngine.cancelTask()
     }
 
-    fun unloadModel() {
-        localAiClient.unload()
-        addBotMessage("Model unloaded. Tap to reload on next question.")
-    }
-
-    private suspend fun getLocalAiResponse(prompt: String): String {
-        return if (_isGeminiEnabled.value) {
-            val history = conversationMemory.getHistory()
-            geminiClient.generateResponse(prompt, history)
-        } else {
-            "AI is disabled. Enable Gemini in Settings."
-        }
-    // ponytail: localAI kept for future rule-based on-device tasks
-    // private suspend fun getLocalAiResponse(prompt: String): String {
-    //     return if (!_isLocalAiEnabled.value) {
-    //         "On-device AI is disabled. Enable it in Settings."
-    //     } else if (!localAiClient.isModelAvailable()) {
-    //         "Model not ready. Go to Settings → tap 'Copy Model to App Storage'."
-    //     } else {
-    //         val history = conversationMemory.getHistory()
-    //         localAiClient.generateResponse(prompt, history)
-    //     }
-    // }
+    private suspend fun getAiResponse(prompt: String): String {
+        if (!_isGeminiEnabled.value) return "AI is disabled. Enable Gemini in Settings."
+        val history = conversationMemory.getHistory()
+        return geminiClient.generateResponse(prompt, history)
     }
 
     fun startListening() {
@@ -323,11 +281,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             override fun onError(error: Int) {
                 _isListening.value = false
+                speechRecognizer?.destroy()
+                speechRecognizer = null
                 addBotMessage("Didn't catch that. Please try again.")
                 com.voicecontrol.app.wake.WakeListenerService.resumeAfterCommand()
             }
             override fun onResults(results: Bundle?) {
                 _isListening.value = false
+                speechRecognizer?.destroy()
+                speechRecognizer = null
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val spokenText = matches?.firstOrNull()
                 if (spokenText != null) {
@@ -360,12 +322,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stopListening() {
         speechRecognizer?.stopListening()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         _isListening.value = false
     }
 
     private suspend fun handleWakeDetected() {
         val ttsManager = (getApplication<Application>() as com.voicecontrol.app.VoiceControlApp).sharedTtsManager
         ttsManager.speakAndAwait("Yes sir, kaise madad karu?")
+        delay(400)
         startListening()
     }
 
@@ -373,31 +338,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _isTtsEnabled.value = !_isTtsEnabled.value
     }
 
-    fun toggleLocalAi() {
-        _isLocalAiEnabled.value = !_isLocalAiEnabled.value
-    }
-
     fun toggleGemini() {
         _isGeminiEnabled.value = !_isGeminiEnabled.value
-    }
-
-    fun copyModelFromUri(uri: Uri) {
-        _modelCopyStatus.value = "Starting copy..."
-        _modelCopyProgress.value = 0
-
-        viewModelScope.launch {
-            try {
-                val result = localAiClient.copyModelFromUri(uri) { progress ->
-                    _modelCopyProgress.value = progress
-                    _modelCopyStatus.value = "Copying... $progress%"
-                }
-                _modelCopyStatus.value = result
-            } catch (e: Exception) {
-                _modelCopyStatus.value = "Error: ${e.message}"
-            } finally {
-                _modelCopyProgress.value = -1
-            }
-        }
     }
 
     fun clearHistory() {
@@ -415,9 +357,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         addBotMessage(text)
     }
 
-    private fun hasSmsPermission(): Boolean {
+    private fun checkSmsPermission(): Boolean {
         val ctx = getApplication<Application>()
-        return ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) return true
+        _requestSmsPermission.tryEmit(Unit)
+        return false
     }
 
     private fun addUserMessage(text: String) {
@@ -452,6 +396,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return null
     }
 
+    private fun getInstalledApps(): List<Pair<String, String>> {
+        val pm = getApplication<Application>().packageManager
+        val intent = Intent(Intent.ACTION_MAIN, null).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+        return pm.queryIntentActivities(intent, 0).map { ri ->
+            ri.loadLabel(pm).toString() to ri.activityInfo.packageName
+        }.sortedBy { it.first.lowercase() }
+    }
+
     private fun parseEventTime(text: String): Triple<String, Int, Int> {
         val lower = text.lowercase()
         val atIdx = lower.indexOf(" at ")
@@ -469,6 +421,5 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         speechRecognizer?.destroy()
         tts?.stop()
         tts?.shutdown()
-        localAiClient.unload()
     }
 }

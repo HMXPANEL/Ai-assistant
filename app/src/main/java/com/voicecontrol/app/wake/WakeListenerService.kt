@@ -76,7 +76,6 @@ class WakeListenerService : Service() {
 
     private fun transitionTo(newState: WakeState) {
         state = newState
-        WakeEventBus.emitState(newState)
     }
 
     private fun startWakeLoop() {
@@ -141,7 +140,10 @@ class WakeListenerService : Service() {
 
     private fun resumeWakeListening() {
         transitionTo(WakeState.IDLE_WAKE_LISTENING)
-        startRecognitionSession()
+        scope.launch {
+            delay(500L)
+            if (state == WakeState.IDLE_WAKE_LISTENING) startRecognitionSession()
+        }
     }
 
     private fun playBeep() {

@@ -19,7 +19,6 @@ object ActionExecutor {
         val appName: String?,
         val url: String?,
         val speech: String?,
-        val status: String,
         val x: Int?,
         val y: Int?,
         val reason: String?
@@ -41,7 +40,6 @@ object ActionExecutor {
                 appName = obj.optString("app_name", "").takeIf { it.isNotEmpty() },
                 url = obj.optString("url", "").takeIf { it.isNotEmpty() },
                 speech = obj.optString("speech", "").takeIf { it.isNotEmpty() },
-                status = obj.optString("status", "in_progress"),
                 x = if (obj.has("x")) obj.optInt("x") else null,
                 y = if (obj.has("y")) obj.optInt("y") else null,
                 reason = obj.optString("reason", "").takeIf { it.isNotEmpty() }

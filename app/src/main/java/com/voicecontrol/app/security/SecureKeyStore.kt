@@ -36,10 +36,4 @@ object SecureKeyStore {
     fun getGeminiApiKey(context: Context): String? {
         return getEncryptedPrefs(context).getString(KEY_GEMINI_API_KEY, null)
     }
-
-    fun hasGeminiApiKey(context: Context): Boolean = !getGeminiApiKey(context).isNullOrEmpty()
-
-    fun clearGeminiApiKey(context: Context) {
-        getEncryptedPrefs(context).edit().remove(KEY_GEMINI_API_KEY).apply()
-    }
 }

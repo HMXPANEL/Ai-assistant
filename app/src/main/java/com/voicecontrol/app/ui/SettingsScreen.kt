@@ -1,9 +1,7 @@
 package com.voicecontrol.app.ui
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +24,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -57,34 +54,13 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     viewModel: ChatViewModel,
     showBackButton: Boolean = false,
-    onBack: () -> Unit = {},
-    onClearHistory: () -> Unit = {}
+    onBack: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val copyProgress by viewModel.modelCopyProgress.collectAsState()
-    val copyStatus by viewModel.modelCopyStatus.collectAsState()
-    val isLocalAiEnabled by viewModel.isLocalAiEnabled.collectAsState()
     val isGeminiEnabled by viewModel.isGeminiEnabled.collectAsState()
     val savedApiKey by viewModel.geminiApiKey.collectAsState()
-
-    val context = LocalContext.current
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (_: Exception) {
-                // some providers don't support persistable permission, ignore
-            }
-            viewModel.copyModelFromUri(uri)
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -118,7 +94,7 @@ fun SettingsScreen(
         ) {
             Button(
                 onClick = {
-                    onClearHistory()
+                    viewModel.clearHistory()
                     scope.launch {
                         snackbarHostState.showSnackbar("Conversation history cleared")
                     }
@@ -181,15 +157,6 @@ fun SettingsScreen(
                     )
                 }
             }
-
-// On-device LLM (llama-android) — kept for future rule-based on-device tasks
-//            Spacer(modifier = Modifier.height(16.dp))
-//            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-//                Column(modifier = Modifier.padding(16.dp)) {
-//                    Text("On-Device AI (Legacy)", style = MaterialTheme.typography.titleMedium)
-//                    ...
-//                }
-//            }
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("Permissions", style = MaterialTheme.typography.titleMedium)
