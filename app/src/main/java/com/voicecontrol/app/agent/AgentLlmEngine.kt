@@ -42,7 +42,7 @@ UI nodes: i=id,t=text,d=desc,T=type(B=Button,E=EditText,IB=ImageButton,TV=TextVi
 
 RULES:
 1. Speech: Hindi only. First step=short confirm, middle=empty, done=completion msg, error=Hindi explain
-2. Apps: ALWAYS open_app first, never scroll home. Use exact name: "WhatsApp","YouTube","Chrome"
+2. App info is checked automatically. If APP_FOUND is given, use that exact app_name with open_app. If APP_NOT_FOUND, tell user it's not installed.
 3. NEVER say done early. After type→MUST click Send button→verify→done. Complete full task inside app
 4. Node missing? scroll→tap_xy→search by text. Give up only after trying all
 5. Verify before done: check screen confirms action worked
@@ -97,13 +97,9 @@ RULES:
 
         val currentTime = SimpleDateFormat("HH:mm", Locale.US).format(Date())
         val currentDate = SimpleDateFormat("EEE, dd MMM yyyy", Locale.US).format(Date())
-        val pm = context.packageManager
-        val mainIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-        val installedApps = pm.queryIntentActivities(mainIntent, 0)
-            .map { it.loadLabel(pm).toString() }
-            .sorted()
-            .take(15)
-            .joinToString(", ")
+
+        // ponytail: check requested app locally instead of sending full app list to Gemini (saves tokens)
+        val appStatus = findRequestedAppStatus(command)
 
         for (iteration in 1..MAX_ITERATIONS) {
             if (!isActive) return
@@ -122,7 +118,7 @@ RULES:
             Log.d(TAG, "UI nodes: ${uiNodes.size}")
 
             val userMessage = if (iteration == 1) {
-                "GOAL:$pinnedGoal\nTIME:$currentTime\nDATE:$currentDate\nAPPS:$installedApps\nSCREEN:$uiJson"
+                "GOAL:$pinnedGoal\nTIME:$currentTime\nDATE:$currentDate\n$appStatus\nSCREEN:$uiJson"
             } else {
                 "GOAL:$pinnedGoal\nSTEP:$iteration\nSCREEN:$uiJson"
             }
@@ -243,6 +239,33 @@ RULES:
             }
         }
         return stableNodes
+    }
+
+    private fun findRequestedAppStatus(command: String): String {
+        val lower = command.lowercase()
+        val prefixes = listOf("open ", "launch ", "start ")
+        val prefix = prefixes.firstOrNull { lower.startsWith(it) } ?: return ""
+        val appName = command.removePrefix(prefix).trim()
+        if (appName.isBlank()) return ""
+
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+        val activities = pm.queryIntentActivities(intent, 0)
+
+        val match = activities.firstOrNull { info ->
+            val label = info.loadLabel(pm).toString()
+            label.equals(appName, ignoreCase = true) ||
+            label.contains(appName, ignoreCase = true) ||
+            appName.contains(label, ignoreCase = true) ||
+            info.activityInfo.packageName.contains(appName, ignoreCase = true)
+        }
+
+        return if (match != null) {
+            val foundName = match.loadLabel(pm).toString()
+            "APP_FOUND:\"$foundName\" — Installed on device. Use open_app with app_name:\"$foundName\"."
+        } else {
+            "APP_NOT_FOUND:\"$appName\" — Not installed on this device. Tell user it's not found and ask if they want to install it."
+        }
     }
 
     private val isActive: Boolean
