@@ -67,5 +67,8 @@ dependencies {
     // Google AI client SDK for Gemini
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
+    // OpenWakeWord for on-device wake word detection
+    implementation("xyz.rementia:openwakeword:0.1.5")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
