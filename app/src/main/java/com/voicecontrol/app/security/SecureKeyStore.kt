@@ -11,6 +11,7 @@ object SecureKeyStore {
     private const val PREFS_NAME = "voicecontrol_secure"
 
     private const val KEY_GEMINI_API_KEY = "gemini_api_key"
+    private const val KEY_GROK_API_KEY = "grok_api_key"
 
     private fun getEncryptedPrefs(context: Context) = try {
         val masterKey = MasterKey.Builder(context)
@@ -35,5 +36,13 @@ object SecureKeyStore {
 
     fun getGeminiApiKey(context: Context): String? {
         return getEncryptedPrefs(context).getString(KEY_GEMINI_API_KEY, null)
+    }
+
+    fun saveGrokApiKey(context: Context, apiKey: String) {
+        getEncryptedPrefs(context).edit().putString(KEY_GROK_API_KEY, apiKey).apply()
+    }
+
+    fun getGrokApiKey(context: Context): String? {
+        return getEncryptedPrefs(context).getString(KEY_GROK_API_KEY, null)
     }
 }

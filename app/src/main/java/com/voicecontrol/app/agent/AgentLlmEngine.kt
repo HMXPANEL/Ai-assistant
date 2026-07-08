@@ -3,9 +3,6 @@ package com.voicecontrol.app.agent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.voicecontrol.app.data.GeminiClient
-import com.voicecontrol.app.data.Mode
-import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.service.AutoAgentService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,12 +14,9 @@ import java.util.Locale
 
 class AgentLlmEngine(private val context: Context) {
 
+    var llmCall: suspend (String) -> String = { "No LLM configured." }
+
     private val ttsManager = AgentTtsManager(context)
-    private val geminiClient: GeminiClient?
-        get() {
-            val key = SecureKeyStore.getGeminiApiKey(context)
-            return if (key.isNullOrBlank()) null else GeminiClient(key, Mode.AGENT)
-        }
 
     companion object {
         private const val TAG = "AgentLlmEngine"
@@ -77,12 +71,7 @@ RULES:
 
     private suspend fun runAgentLoop(command: String, myGeneration: Int) {
         try {
-        val client = geminiClient
-        if (client == null) {
-            onStatusUpdate?.invoke("❌ Gemini API key set nahi hai")
-            ttsManager.speak("Pehle settings mein API key daalo.")
-            return
-        }
+        val call = llmCall
 
         val service = AutoAgentService.instance
         if (service == null) {
@@ -133,7 +122,7 @@ RULES:
                     }
                     appendLine("user: $userMessage")
                 }
-                client.generateResponse(fullPrompt, emptyList())
+                call(fullPrompt)
             } catch (e: Exception) {
                 Log.e(TAG, "LLM call failed: ${e.message}")
                 onStatusUpdate?.invoke("❌ ${e.message?.take(50) ?: "Server error"}")

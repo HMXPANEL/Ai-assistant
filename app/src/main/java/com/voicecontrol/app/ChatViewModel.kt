@@ -18,7 +18,9 @@ import androidx.lifecycle.viewModelScope
 import com.voicecontrol.app.agent.AgentLlmEngine
 import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
+import com.voicecontrol.app.data.GrokClient
 import com.voicecontrol.app.data.GeminiClient
+import com.voicecontrol.app.data.Mode
 import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
 import com.voicecontrol.app.device.ContactsHelper
@@ -37,6 +39,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+
+enum class AiProvider { GEMINI, GROK }
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -64,7 +68,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _geminiApiKey = MutableStateFlow("")
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
+    private val _grokApiKey = MutableStateFlow("")
+    val grokApiKey: StateFlow<String> = _grokApiKey.asStateFlow()
+
+    private val _aiProvider = MutableStateFlow(AiProvider.GEMINI)
+    val aiProvider: StateFlow<AiProvider> = _aiProvider.asStateFlow()
+
     private var geminiClient = GeminiClient("")
+    private var grokClient = GrokClient("")
 
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
@@ -74,6 +85,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val conversationMemory = ConversationMemory(getApplication())
     private val agentLlmEngine = AgentLlmEngine(getApplication()).also { engine ->
+        engine.llmCall = { prompt -> currentLlmCall(prompt) }
         engine.onStatusUpdate = { status -> addBotMessage(status) }
     }
     val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
@@ -82,9 +94,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         val ctx = getApplication<Application>()
-        val savedKey = SecureKeyStore.getGeminiApiKey(ctx) ?: ""
-        _geminiApiKey.value = savedKey
-        if (savedKey.isNotBlank()) geminiClient = GeminiClient(savedKey)
+        val savedGeminiKey = SecureKeyStore.getGeminiApiKey(ctx) ?: ""
+        _geminiApiKey.value = savedGeminiKey
+        if (savedGeminiKey.isNotBlank()) geminiClient = GeminiClient(savedGeminiKey)
+
+        val savedGrokKey = SecureKeyStore.getGrokApiKey(ctx) ?: ""
+        _grokApiKey.value = savedGrokKey
+        if (savedGrokKey.isNotBlank()) grokClient = GrokClient(savedGrokKey)
 
         val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _isWakeWordEnabled.value = prefs.getBoolean("wake_word_enabled", false)
@@ -109,6 +125,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         SecureKeyStore.saveGeminiApiKey(getApplication(), key)
         _geminiApiKey.value = key
         geminiClient = GeminiClient(key)
+        updateAgentLlmCall()
+    }
+
+    fun saveGrokApiKey(key: String) {
+        SecureKeyStore.saveGrokApiKey(getApplication(), key)
+        _grokApiKey.value = key
+        grokClient = GrokClient(key)
+        updateAgentLlmCall()
+    }
+
+    fun setAiProvider(provider: AiProvider) {
+        _aiProvider.value = provider
+        updateAgentLlmCall()
+    }
+
+    private fun updateAgentLlmCall() {
+        agentLlmEngine.llmCall = { prompt -> currentLlmCall(prompt) }
+    }
+
+    private suspend fun currentLlmCall(prompt: String): String {
+        return when (_aiProvider.value) {
+            AiProvider.GEMINI -> geminiClient.let {
+                if (_geminiApiKey.value.isBlank()) "No API key set. Enter it in Settings."
+                else it.generateResponse(prompt, emptyList())
+            }
+            AiProvider.GROK -> grokClient.let {
+                if (_grokApiKey.value.isBlank()) "No API key set. Enter it in Settings."
+                else it.generateResponse(prompt, emptyList())
+            }
+        }
     }
 
     fun onInputChange(text: String) {
@@ -268,9 +314,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun getAiResponse(prompt: String): String {
-        if (!_isGeminiEnabled.value) return "AI is disabled. Enable Gemini in Settings."
+        if (!_isGeminiEnabled.value) return "AI is disabled. Enable in Settings."
         val history = conversationMemory.getHistory()
-        return geminiClient.generateResponse(prompt, history)
+        if (_geminiApiKey.value.isBlank() && _grokApiKey.value.isBlank()) return "No API key set. Enter it in Settings."
+        return when (_aiProvider.value) {
+            AiProvider.GEMINI -> geminiClient.generateResponse(prompt, history)
+            AiProvider.GROK -> grokClient.generateResponse(prompt, history)
+        }
     }
 
     fun startListening() {

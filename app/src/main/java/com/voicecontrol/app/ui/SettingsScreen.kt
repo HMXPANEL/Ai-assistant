@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.voicecontrol.app.AiProvider
 import com.voicecontrol.app.ChatViewModel
 import kotlinx.coroutines.launch
 
@@ -62,7 +63,9 @@ fun SettingsScreen(
     val isGeminiEnabled by viewModel.isGeminiEnabled.collectAsState()
     val isWakeWordEnabled by viewModel.isWakeWordEnabled.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
-    val savedApiKey by viewModel.geminiApiKey.collectAsState()
+    val savedGeminiKey by viewModel.geminiApiKey.collectAsState()
+    val savedGrokKey by viewModel.grokApiKey.collectAsState()
+    val currentProvider by viewModel.aiProvider.collectAsState()
 
     Scaffold(
         topBar = {
@@ -148,10 +151,10 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Gemini AI section
+            // AI Provider section
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Gemini API (Cloud AI)", style = MaterialTheme.typography.titleMedium)
+                    Text("AI Provider", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
 
                     Row(
@@ -159,7 +162,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Enable Gemini AI")
+                        Text("Enable AI")
                         Switch(
                             checked = isGeminiEnabled,
                             onCheckedChange = { viewModel.toggleGemini() }
@@ -168,32 +171,73 @@ fun SettingsScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    var apiKeyInput by remember { mutableStateOf(savedApiKey) }
-                    OutlinedTextField(
-                        value = apiKeyInput,
-                        onValueChange = { apiKeyInput = it },
-                        label = { Text("Gemini API Key") },
-                        placeholder = { Text("Paste your API key from aistudio.google.com") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Button(
-                        onClick = { viewModel.saveGeminiApiKey(apiKeyInput.trim()) },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = apiKeyInput.isNotBlank()
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Save API Key")
+                        Button(
+                            onClick = { viewModel.setAiProvider(AiProvider.GEMINI) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentProvider == AiProvider.GEMINI) Color(0xFF1976D2) else Color.Gray
+                            )
+                        ) { Text("Gemini") }
+                        Button(
+                            onClick = { viewModel.setAiProvider(AiProvider.GROK) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentProvider == AiProvider.GROK) Color(0xFF1976D2) else Color.Gray
+                            )
+                        ) { Text("Grok (xAI)") }
                     }
 
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Model: gemini-2.5-flash \u2022 Get a free key at aistudio.google.com",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    if (currentProvider == AiProvider.GEMINI) {
+                        var apiKeyInput by remember { mutableStateOf(savedGeminiKey) }
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("Gemini API Key") },
+                            placeholder = { Text("Paste your API key from aistudio.google.com") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.saveGeminiApiKey(apiKeyInput.trim()) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = apiKeyInput.isNotBlank()
+                        ) { Text("Save Gemini Key") }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Model: gemini-2.5-flash \u2022 Get a free key at aistudio.google.com",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    } else {
+                        var apiKeyInput by remember { mutableStateOf(savedGrokKey) }
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("Grok API Key") },
+                            placeholder = { Text("Paste your xAI API key from console.x.ai") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.saveGrokApiKey(apiKeyInput.trim()) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = apiKeyInput.isNotBlank()
+                        ) { Text("Save Grok Key") }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Model: grok-2-latest \u2022 Get a key at console.x.ai",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
                 }
             }
 
