@@ -18,7 +18,7 @@ import androidx.lifecycle.viewModelScope
 import com.voicecontrol.app.agent.AgentLlmEngine
 import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
-import com.voicecontrol.app.data.GrokClient
+import com.voicecontrol.app.data.GroqClient
 import com.voicecontrol.app.data.GeminiClient
 import com.voicecontrol.app.data.Mode
 import com.voicecontrol.app.device.AlarmHelper
@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 
-enum class AiProvider { GEMINI, GROK }
+enum class AiProvider { GEMINI, GROQ }
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -68,14 +68,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _geminiApiKey = MutableStateFlow("")
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
-    private val _grokApiKey = MutableStateFlow("")
-    val grokApiKey: StateFlow<String> = _grokApiKey.asStateFlow()
+    private val _groqApiKey = MutableStateFlow("")
+    val groqApiKey: StateFlow<String> = _groqApiKey.asStateFlow()
 
     private val _aiProvider = MutableStateFlow(AiProvider.GEMINI)
     val aiProvider: StateFlow<AiProvider> = _aiProvider.asStateFlow()
 
     private var geminiClient = GeminiClient("")
-    private var grokClient = GrokClient("")
+    private var groqClient = GroqClient("")
 
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
@@ -98,9 +98,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _geminiApiKey.value = savedGeminiKey
         if (savedGeminiKey.isNotBlank()) geminiClient = GeminiClient(savedGeminiKey)
 
-        val savedGrokKey = SecureKeyStore.getGrokApiKey(ctx) ?: ""
-        _grokApiKey.value = savedGrokKey
-        if (savedGrokKey.isNotBlank()) grokClient = GrokClient(savedGrokKey)
+        val savedGroqKey = SecureKeyStore.getGroqApiKey(ctx) ?: ""
+        _groqApiKey.value = savedGroqKey
+        if (savedGroqKey.isNotBlank()) groqClient = GroqClient(savedGroqKey)
 
         val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _isWakeWordEnabled.value = prefs.getBoolean("wake_word_enabled", false)
@@ -128,10 +128,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         updateAgentLlmCall()
     }
 
-    fun saveGrokApiKey(key: String) {
-        SecureKeyStore.saveGrokApiKey(getApplication(), key)
-        _grokApiKey.value = key
-        grokClient = GrokClient(key)
+    fun saveGroqApiKey(key: String) {
+        SecureKeyStore.saveGroqApiKey(getApplication(), key)
+        _groqApiKey.value = key
+        groqClient = GroqClient(key)
         updateAgentLlmCall()
     }
 
@@ -150,8 +150,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (_geminiApiKey.value.isBlank()) "No API key set. Enter it in Settings."
                 else it.generateResponse(prompt, emptyList())
             }
-            AiProvider.GROK -> grokClient.let {
-                if (_grokApiKey.value.isBlank()) "No API key set. Enter it in Settings."
+            AiProvider.GROQ -> groqClient.let {
+                if (_groqApiKey.value.isBlank()) "No API key set. Enter it in Settings."
                 else it.generateResponse(prompt, emptyList())
             }
         }
@@ -316,10 +316,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun getAiResponse(prompt: String): String {
         if (!_isGeminiEnabled.value) return "AI is disabled. Enable in Settings."
         val history = conversationMemory.getHistory()
-        if (_geminiApiKey.value.isBlank() && _grokApiKey.value.isBlank()) return "No API key set. Enter it in Settings."
+        if (_geminiApiKey.value.isBlank() && _groqApiKey.value.isBlank()) return "No API key set. Enter it in Settings."
         return when (_aiProvider.value) {
             AiProvider.GEMINI -> geminiClient.generateResponse(prompt, history)
-            AiProvider.GROK -> grokClient.generateResponse(prompt, history)
+            AiProvider.GROQ -> groqClient.generateResponse(prompt, history)
         }
     }
 

@@ -10,10 +10,10 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
-class GrokClient(private val apiKey: String, private val mode: Mode = Mode.CHAT) {
+class GroqClient(private val apiKey: String, private val mode: Mode = Mode.CHAT) {
     companion object {
-        private const val BASE_URL = "https://api.x.ai/v1/chat/completions"
-        private const val MODEL = "grok-2-latest"
+        private const val BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
+        private const val MODEL = "llama-3.3-70b-versatile"
     }
 
     suspend fun generateResponse(

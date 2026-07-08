@@ -64,7 +64,7 @@ fun SettingsScreen(
     val isWakeWordEnabled by viewModel.isWakeWordEnabled.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val savedGeminiKey by viewModel.geminiApiKey.collectAsState()
-    val savedGrokKey by viewModel.grokApiKey.collectAsState()
+    val savedGroqKey by viewModel.groqApiKey.collectAsState()
     val currentProvider by viewModel.aiProvider.collectAsState()
 
     Scaffold(
@@ -183,12 +183,12 @@ fun SettingsScreen(
                             )
                         ) { Text("Gemini") }
                         Button(
-                            onClick = { viewModel.setAiProvider(AiProvider.GROK) },
+                            onClick = { viewModel.setAiProvider(AiProvider.GROQ) },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentProvider == AiProvider.GROK) Color(0xFF1976D2) else Color.Gray
+                                containerColor = if (currentProvider == AiProvider.GROQ) Color(0xFF1976D2) else Color.Gray
                             )
-                        ) { Text("Grok (xAI)") }
+                        ) { Text("Groq") }
                     }
 
                     Spacer(Modifier.height(12.dp))
@@ -216,24 +216,24 @@ fun SettingsScreen(
                             color = Color.Gray
                         )
                     } else {
-                        var apiKeyInput by remember { mutableStateOf(savedGrokKey) }
+                        var apiKeyInput by remember { mutableStateOf(savedGroqKey) }
                         OutlinedTextField(
                             value = apiKeyInput,
                             onValueChange = { apiKeyInput = it },
-                            label = { Text("Grok API Key") },
-                            placeholder = { Text("Paste your xAI API key from console.x.ai") },
+                            label = { Text("Groq API Key") },
+                            placeholder = { Text("Paste your Groq API key from console.groq.com") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(8.dp))
                         Button(
-                            onClick = { viewModel.saveGrokApiKey(apiKeyInput.trim()) },
+                            onClick = { viewModel.saveGroqApiKey(apiKeyInput.trim()) },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = apiKeyInput.isNotBlank()
-                        ) { Text("Save Grok Key") }
+                        ) { Text("Save Groq Key") }
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Model: grok-2-latest \u2022 Get a key at console.x.ai",
+                            "Model: llama-3.3-70b-versatile \u2022 Get a free key at console.groq.com",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
