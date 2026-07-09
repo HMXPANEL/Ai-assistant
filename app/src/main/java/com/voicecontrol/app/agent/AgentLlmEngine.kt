@@ -51,7 +51,6 @@ Command examples: "wifi on karo", "bluetooth band kar do", "wifi chalu kar", "mo
 5. Press back to return to home
 6. If Settings app can't be opened directly, open the Quick Settings panel by swiping down from top"""
     }
-    }
 
     var onStatusUpdate: ((String) -> Unit)? = null
     private val conversationHistory = mutableListOf<Pair<String, String>>()
