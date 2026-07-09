@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import org.json.JSONObject
 
 
 enum class AiProvider { GEMINI, GROQ }
@@ -89,19 +89,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         engine.onStatusUpdate = { status -> addBotMessage(status) }
     }
     val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
-
-    // ponytail: English + Hinglish keywords for WiFi/BT/data — matches "wifi on karo", "bluetooth band karo", etc.
-    private val wifiBtKeywords = listOf(
-        "wifi", "bluetooth", "mobile data", "airplane", "flight",
-        "internet"
-    )
-    private val toggleOnKeywords = listOf("on", "chalu", "enable", "kar")
-    private val toggleOffKeywords = listOf("off", "band", "disable", "bnd")
-    private fun isWifiBtCommand(lower: String): Boolean {
-        val hasWifiBt = wifiBtKeywords.any { lower.contains(it) }
-        val hasToggle = toggleOnKeywords.any { lower.contains(it) } || toggleOffKeywords.any { lower.contains(it) }
-        return hasWifiBt && hasToggle
-    }
 
     private var speechRecognizer: SpeechRecognizer? = null
 
@@ -187,120 +174,173 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun processCommand(command: String) {
         val lower = command.lowercase().trim()
         viewModelScope.launch {
-            // Compound/multi-step commands (contains "and") → route directly to AgentLlmEngine
-            if (lower.contains(" and ")) {
-                agentLlmEngine.startTask(command, viewModelScope)
-                return@launch
-            }
-
-            val response = when {
-                lower == "show apps" || lower == "list apps" || lower == "show installed apps" -> {
-                    val apps = getInstalledApps()
-                    if (apps.isEmpty()) "No apps found."
-                    else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.first}" }
-                }
-                lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ") -> {
-                    agentLlmEngine.startTask(command, viewModelScope)
+            // Fast offline exact matches — no LLM needed
+            when {
+                lower in listOf("help", "what can you do") -> {
+                    addBotMessage("I can do many things! Try 'flashlight on', 'set alarm at 7am', 'send message to Mom saying hi', 'read notifications', 'wifi on karo', 'open YouTube'.")
                     return@launch
                 }
-                lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• WiFi/Bluetooth — 'wifi on karo', 'bluetooth band karo', 'wifi chalu kar'\n• Read notifications — say 'read notifications'"
-
-                lower.startsWith("send message to ") || lower.startsWith("send sms to ") -> {
-                    if (!checkSmsPermission()) return@launch
-                    val parts = lower.removePrefix("send message to ").removePrefix("send sms to ").split(" saying ", limit = 2)
-                    if (parts.size < 2) "Usage: 'send message to [name] saying [message]'."
-                    else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
+                lower in listOf("show apps", "list apps", "show installed apps") -> {
+                    val apps = getInstalledApps()
+                    addBotMessage(if (apps.isEmpty()) "No apps found." else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.first}" })
+                    return@launch
                 }
-                lower.startsWith("text ") -> {
-                    if (!checkSmsPermission()) return@launch
-                    val parts = lower.removePrefix("text ").trim().split(" ", limit = 2)
-                    if (parts.size < 2) "Usage: 'text [name] [message]'."
-                    else SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim())
+                lower in listOf("flashlight on", "turn on flashlight", "torch on") -> {
+                    addBotMessage(DeviceController.toggleFlashlight(getApplication(), true))
+                    return@launch
                 }
-                lower == "read messages" || lower == "show messages" || lower == "read sms" -> {
-                    if (!checkSmsPermission()) return@launch
-                    SmsManager.readRecentSms(getApplication())
+                lower in listOf("flashlight off", "turn off flashlight", "torch off") -> {
+                    addBotMessage(DeviceController.toggleFlashlight(getApplication(), false))
+                    return@launch
                 }
-
-                lower == "read notifications" || lower == "show notifications" || lower == "any notifications" || lower == "what's new" || lower == "whats new" -> {
+                lower in listOf("mute", "mute phone", "silence phone") -> {
+                    addBotMessage(DeviceController.mutePhone(getApplication()))
+                    return@launch
+                }
+                lower in listOf("unmute", "unmute phone") -> {
+                    addBotMessage(DeviceController.unmutePhone(getApplication()))
+                    return@launch
+                }
+                lower.startsWith("set volume") || lower.startsWith("volume ") || lower == "volume" -> {
+                    val n = extractNumber(lower)
+                    addBotMessage(if (n != null && n in 0..100) DeviceController.setVolume(getApplication(), n) else "Volume number samajh nahi aaya.")
+                    return@launch
+                }
+                lower.startsWith("set brightness") || lower.startsWith("brightness ") || lower == "brightness" -> {
+                    val n = extractNumber(lower)
+                    addBotMessage(if (n != null && n in 0..100) DeviceController.setBrightness(getApplication(), n) else "Brightness number samajh nahi aaya.")
+                    return@launch
+                }
+                lower.startsWith("send message to ") || lower.startsWith("send sms to ") || lower.startsWith("text ") -> {
+                    if (!checkSmsPermission()) return@launch
+                    val parts = when {
+                        lower.startsWith("text ") -> lower.removePrefix("text ").trim().split(" ", limit = 2).let { if (it.size < 2) { addBotMessage("Usage: text [name] [message]."); return@launch } else it }
+                        else -> lower.removePrefix("send message to ").removePrefix("send sms to ").split(" saying ", limit = 2).let { if (it.size < 2) { addBotMessage("Usage: send message to [name] saying [message]."); return@launch } else it }
+                    }
+                    addBotMessage(SmsManager.sendSms(getApplication(), parts[0].trim(), parts[1].trim()))
+                    return@launch
+                }
+                lower in listOf("read messages", "show messages", "read sms") -> {
+                    if (!checkSmsPermission()) return@launch
+                    addBotMessage(SmsManager.readRecentSms(getApplication()))
+                    return@launch
+                }
+                lower in listOf("read notifications", "show notifications", "any notifications", "what's new", "whats new") -> {
                     val ctx = getApplication<Application>()
                     if (!NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName))
-                        "Please grant Notification Access: go to Settings > Notifications > Notification Access > enable AI Assistant."
-                    else NotificationService.getSummary()
+                        addBotMessage("Please grant Notification Access: go to Settings > Notifications > Notification Access > enable AI Assistant.")
+                    else addBotMessage(NotificationService.getSummary())
+                    return@launch
                 }
-
-                lower.startsWith("find contact ") || lower.startsWith("search contact ") || (lower.startsWith("what is ") && lower.contains("number")) ->
-                    ContactsHelper.findContact(getApplication(), extractContactName(lower))
-                lower == "show contacts" || lower == "list contacts" -> ContactsHelper.listRecentContacts(getApplication())
-
-                lower == "what's on my calendar" || lower == "show calendar" || lower == "today's events" ->
-                    CalendarHelper.getTodayEvents(getApplication())
-                lower.startsWith("show events") || lower.startsWith("upcoming events") ->
-                    CalendarHelper.getUpcomingEvents(getApplication())
-                lower.startsWith("add event") || lower.startsWith("schedule ") || lower.startsWith("create meeting") -> {
-                    val text = lower.removePrefix("add event").removePrefix("schedule").removePrefix("create meeting").trim()
-                    val (title, hour, min) = parseEventTime(text)
-                    CalendarHelper.addEvent(getApplication(), title, hour, min)
-                }
-
                 lower.startsWith("set alarm") || lower.startsWith("wake me") || lower.startsWith("alarm at") -> {
                     try {
                         val parsed = AlarmHelper.parseTimeFromText(lower)
-                        if (parsed == null) {
-                            "I didn't understand that time. Try: 'set alarm at 7am' or 'alarm at 14:30'"
-                        } else {
-                            AlarmHelper.setAlarm(getApplication(), parsed.first, parsed.second)
-                        }
-                    } catch (e: Exception) {
-                        "Alarm error: ${e.message}"
-                    }
+                        addBotMessage(if (parsed == null) "Time samajh nahi aaya. Try 'set alarm at 7am'." else AlarmHelper.setAlarm(getApplication(), parsed.first, parsed.second))
+                    } catch (e: Exception) { addBotMessage("Alarm error: ${e.message}") }
+                    return@launch
                 }
                 lower.startsWith("set timer") || lower.startsWith("timer for") -> {
-                    parseDuration(lower)?.let { AlarmHelper.setTimer(getApplication(), it) }
-                        ?: "Couldn't parse the duration. Try 'set timer for 5 minutes'."
-                }
-
-                lower == "flashlight on" || lower == "turn on flashlight" || lower == "torch on" ->
-                    DeviceController.toggleFlashlight(getApplication(), true)
-                lower == "flashlight off" || lower == "turn off flashlight" || lower == "torch off" ->
-                    DeviceController.toggleFlashlight(getApplication(), false)
-                lower.startsWith("set volume") || lower.startsWith("volume ") || lower == "volume" -> {
-                    val n = extractNumber(lower)
-                    if (n != null && n in 0..100) DeviceController.setVolume(getApplication(), n)
-                    else "Couldn't parse volume. Try 'set volume to 50'."
-                }
-                lower == "mute" || lower == "silence phone" || lower == "mute phone" ->
-                    DeviceController.mutePhone(getApplication())
-                lower == "unmute" || lower == "unmute phone" ->
-                    DeviceController.unmutePhone(getApplication())
-                lower.startsWith("set brightness") || lower.startsWith("brightness ") || lower == "brightness" -> {
-                    val n = extractNumber(lower)
-                    if (n != null && n in 0..100) DeviceController.setBrightness(getApplication(), n)
-                    else "Couldn't parse brightness. Try 'set brightness to 50'."
-                }
-
-                // WiFi/Bluetooth/data/airplane → route to AgentLlmEngine (handles UI toggle via AccessibilityService)
-                isWifiBtCommand(lower) -> {
-                    agentLlmEngine.startTask(command, viewModelScope)
+                    val duration = parseDuration(lower)
+                    addBotMessage(if (duration != null) AlarmHelper.setTimer(getApplication(), duration) else "Duration samajh nahi aaya. Try 'set timer for 5 minutes'.")
                     return@launch
-                }
-
-                lower.contains("trun off") || lower.contains("trun on") -> {
-                    val fixedLower = lower.replace("trun", "turn")
-                    processCommand(fixedLower)
-                    return@launch
-                }
-
-                else -> {
-                    val devicePrefixes = listOf("open", "send", "set", "turn", "call", "play", "book", "search", "delete", "close")
-                    if (devicePrefixes.any { lower.startsWith(it) } || lower.contains(" and ")) {
-                        agentLlmEngine.startTask(command, viewModelScope)
-                        return@launch
-                    }
-                    getAiResponse(command)
                 }
             }
-            addBotMessage(response)
+
+            if (!_isGeminiEnabled.value || (_geminiApiKey.value.isBlank() && _groqApiKey.value.isBlank())) {
+                addBotMessage("AI is disabled or no API key. Enable in Settings.")
+                return@launch
+            }
+
+            val result = llmRoute(command)
+            if (result != null) addBotMessage(result)
+        }
+    }
+
+    private suspend fun llmRoute(command: String): String? {
+        val prompt = buildString {
+            appendLine("ROUTER — Classify this command into one intent. Return ONLY JSON, no other text.")
+            appendLine("Intents: flash_on, flash_off, mute, unmute, volume_set, brightness_set,")
+            appendLine("wifi_on, wifi_off, bt_on, bt_off, data_on, data_off, airplane_on, airplane_off,")
+            appendLine("open_app, show_apps, sms_send, sms_read, notif_read,")
+            appendLine("alarm_set, timer_set, contact_find, contact_list, cal_read, cal_add,")
+            appendLine("compound (multi-step, needs UI automation), call, chat, help")
+            appendLine()
+            appendLine("{\"intent\":\"\",\"params\":{},\"needs_agent\":false,\"speech\":\"\"}")
+            append("Command: $command")
+        }
+
+        val response = currentLlmCall(prompt)
+        val json = try {
+            val s = response.indexOf('{')
+            val e = response.lastIndexOf('}')
+            if (s >= 0 && e > s) JSONObject(response.substring(s, e + 1)) else null
+        } catch (_: Exception) { null }
+
+        if (json == null) return response
+
+        val intent = json.optString("intent", "chat")
+        val params = json.optJSONObject("params") ?: JSONObject()
+        val needsAgent = json.optBoolean("needs_agent", false)
+        val speech = json.optString("speech", "")
+
+        return when (intent) {
+            "flash_on" -> DeviceController.toggleFlashlight(getApplication(), true)
+            "flash_off" -> DeviceController.toggleFlashlight(getApplication(), false)
+            "mute" -> DeviceController.mutePhone(getApplication())
+            "unmute" -> DeviceController.unmutePhone(getApplication())
+            "volume_set" -> DeviceController.setVolume(getApplication(), params.optInt("level", 50).coerceIn(0, 100))
+            "brightness_set" -> DeviceController.setBrightness(getApplication(), params.optInt("level", 50).coerceIn(0, 100))
+            "sms_send" -> {
+                if (!checkSmsPermission()) return "SMS permission nahi hai."
+                SmsManager.sendSms(getApplication(), params.optString("contact", ""), params.optString("message", ""))
+            }
+            "sms_read" -> {
+                if (!checkSmsPermission()) return "SMS permission nahi hai."
+                SmsManager.readRecentSms(getApplication())
+            }
+            "notif_read" -> {
+                val ctx = getApplication<Application>()
+                if (!NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName))
+                    "Please grant Notification Access."
+                else NotificationService.getSummary()
+            }
+            "alarm_set" -> {
+                val time = AlarmHelper.parseTimeFromText(params.optString("time", command))
+                if (time != null) AlarmHelper.setAlarm(getApplication(), time.first, time.second)
+                else "Time samajh nahi aaya."
+            }
+            "timer_set" -> {
+                val mins = params.optInt("minutes", -1)
+                if (mins > 0) AlarmHelper.setTimer(getApplication(), mins * 60)
+                else "Duration samajh nahi aaya."
+            }
+            "contact_find" -> ContactsHelper.findContact(getApplication(), params.optString("name", command))
+            "contact_list" -> ContactsHelper.listRecentContacts(getApplication())
+            "cal_read" -> CalendarHelper.getTodayEvents(getApplication())
+            "cal_add" -> {
+                val t = AlarmHelper.parseTimeFromText(params.optString("time", ""))
+                CalendarHelper.addEvent(getApplication(), params.optString("title", "Event"), t?.first ?: 12, t?.second ?: 0)
+            }
+            "show_apps" -> {
+                val apps = getInstalledApps()
+                if (apps.isEmpty()) "No apps found."
+                else "Installed apps:\n" + apps.joinToString("\n") { "• ${it.first}" }
+            }
+            "help" -> "I can do many things! Try 'flashlight on', 'set alarm at 7am', 'send message to Mom saying hi', 'read notifications', 'wifi on karo', 'open YouTube'."
+            "call" -> {
+                val contact = params.optString("name", "")
+                if (contact.isNotBlank()) ContactsHelper.findContact(getApplication(), contact)
+                else "Call karna hai but kise bulana hai?"
+            }
+            "wifi_on", "wifi_off", "bt_on", "bt_off", "data_on", "data_off", "airplane_on", "airplane_off",
+            "open_app", "compound" -> {
+                agentLlmEngine.startTask(command, viewModelScope)
+                null
+            }
+            else -> if (needsAgent) {
+                agentLlmEngine.startTask(command, viewModelScope)
+                null
+            } else speech.ifEmpty { getAiResponse(command) }
         }
     }
 
@@ -477,13 +517,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         conversationMemory.saveMessage("assistant", text)
     }
 
-    private fun extractContactName(lower: String): String = when {
-        lower.startsWith("find contact ") -> lower.removePrefix("find contact ").trim()
-        lower.startsWith("search contact ") -> lower.removePrefix("search contact ").trim()
-        lower.startsWith("what is ") -> lower.removePrefix("what is ").trim().replace(Regex("'?s? (phone )?number.*"), "").trim()
-        else -> lower
-    }
-
     private fun parseDuration(input: String): Int? {
         val cleaned = input.lowercase().replace(Regex("set timer|timer for|timer|for"), "").trim()
         Regex("""(\d+)\s*(min|mins|minute|minutes|m)""").find(cleaned)?.let { return it.groupValues[1].toInt() * 60 }
@@ -505,18 +538,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return pm.queryIntentActivities(intent, 0).map { ri ->
             ri.loadLabel(pm).toString() to ri.activityInfo.packageName
         }.sortedBy { it.first.lowercase() }
-    }
-
-    private fun parseEventTime(text: String): Triple<String, Int, Int> {
-        val lower = text.lowercase()
-        val atIdx = lower.indexOf(" at ")
-        if (atIdx >= 0) {
-            val title = text.substring(0, atIdx).trim()
-            val time = AlarmHelper.parseTimeFromText(text.substring(atIdx + 4).trim())
-            if (time != null) return Triple(title, time.first, time.second)
-        }
-        val cal = Calendar.getInstance()
-        return Triple(text, cal.get(Calendar.HOUR_OF_DAY) + 1, 0)
     }
 
     override fun onCleared() {
