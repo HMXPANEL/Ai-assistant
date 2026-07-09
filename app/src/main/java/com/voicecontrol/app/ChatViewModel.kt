@@ -90,6 +90,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
 
+    // ponytail: English + Hinglish keywords for WiFi/BT/data — matches "wifi on karo", "bluetooth band karo", etc.
+    private val wifiBtKeywords = listOf(
+        "wifi", "bluetooth", "mobile data", "airplane", "flight",
+        "internet"
+    )
+    private val toggleOnKeywords = listOf("on", "chalu", "enable", "kar")
+    private val toggleOffKeywords = listOf("off", "band", "disable", "bnd")
+    private fun isWifiBtCommand(lower: String): Boolean {
+        val hasWifiBt = wifiBtKeywords.any { lower.contains(it) }
+        val hasToggle = toggleOnKeywords.any { lower.contains(it) } || toggleOffKeywords.any { lower.contains(it) }
+        return hasWifiBt && hasToggle
+    }
+
     private var speechRecognizer: SpeechRecognizer? = null
 
     init {
@@ -190,7 +203,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     agentLlmEngine.startTask(command, viewModelScope)
                     return@launch
                 }
-                lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• Read notifications — say 'read notifications'"
+                lower == "help" || lower == "what can you do" -> "I can:\n• Open apps — say 'open YouTube'\n• List apps — say 'show apps'\n• Send SMS — say 'send message to [name] saying [text]'\n• Read messages — say 'read messages'\n• Set alarms — say 'set alarm at 7am'\n• Set timers — say 'set timer for 5 minutes'\n• Find contacts — say 'find contact [name]'\n• Calendar — say 'today's events' or 'add event'\n• Control device — say 'flashlight on', 'mute', 'set volume'\n• WiFi/Bluetooth — 'wifi on karo', 'bluetooth band karo', 'wifi chalu kar'\n• Read notifications — say 'read notifications'"
 
                 lower.startsWith("send message to ") || lower.startsWith("send sms to ") -> {
                     if (!checkSmsPermission()) return@launch
@@ -265,29 +278,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (n != null && n in 0..100) DeviceController.setBrightness(getApplication(), n)
                     else "Couldn't parse brightness. Try 'set brightness to 50'."
                 }
-                lower == "turn on wifi" || lower == "enable wifi" || lower == "wifi on" ->
-                    DeviceController.toggleWifi(getApplication(), true)
-                lower == "turn off wifi" || lower == "wifi off" ->
-                    DeviceController.toggleWifi(getApplication(), false)
-                lower == "turn on bluetooth" || lower == "bluetooth on" ->
-                    DeviceController.toggleBluetooth(getApplication(), true)
-                lower == "turn off bluetooth" || lower == "bluetooth off" ->
-                    DeviceController.toggleBluetooth(getApplication(), false)
 
-                lower.contains("mobile data") || lower.contains("turn off data") ||
-                lower.contains("turn on data") || lower.contains("mobile network") -> {
-                    val enable = lower.contains("on") || lower.contains("enable")
-                    DeviceController.toggleMobileData(getApplication(), enable)
-                }
-
-                lower.contains("airplane mode") || lower.contains("flight mode") -> {
-                    DeviceController.openAirplaneMode(getApplication())
-                }
-
-                lower.contains("turn off internet") || lower.contains("disable internet") ||
-                lower.contains("turn on internet") -> {
-                    val enable = lower.contains("on") || lower.contains("enable")
-                    DeviceController.toggleMobileData(getApplication(), enable)
+                // WiFi/Bluetooth/data/airplane → route to AgentLlmEngine (handles UI toggle via AccessibilityService)
+                isWifiBtCommand(lower) -> {
+                    agentLlmEngine.startTask(command, viewModelScope)
+                    return@launch
                 }
 
                 lower.contains("trun off") || lower.contains("trun on") -> {

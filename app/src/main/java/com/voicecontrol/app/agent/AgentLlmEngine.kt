@@ -40,7 +40,17 @@ RULES:
 3. NEVER say done early. After type→MUST click Send button→verify→done. Complete full task inside app
 4. Node missing? scroll→tap_xy→search by text. Give up only after trying all
 5. Verify before done: check screen confirms action worked
-6. Multiple matches? Ask user via speech. One match? Proceed"""
+6. Multiple matches? Ask user via speech. One match? Proceed
+
+TOGGLE WIFI/BLUETOOTH/DATA/AIRPLANE:
+Command examples: "wifi on karo", "bluetooth band kar do", "wifi chalu kar", "mobile data on", "airplane mode off karo", "turn on wifi", "bluetooth enable karo"
+1. Use open_app with app_name "Settings" to open Android settings
+2. Search screen for "WiFi" or "Network" or "Connections" section. Tap it
+3. Find the toggle switch (usually a Switch/Button with text "WiFi" or "Bluetooth"). Click it via node_id or text
+4. Verify by checking toggle state text changes (on/off)
+5. Press back to return to home
+6. If Settings app can't be opened directly, open the Quick Settings panel by swiping down from top"""
+    }
     }
 
     var onStatusUpdate: ((String) -> Unit)? = null
