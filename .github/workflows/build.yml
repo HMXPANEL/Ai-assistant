@@ -64,16 +64,14 @@ jobs:
       - name: Debug APK path
         run: |
           echo "=== outputs dir ==="
-          ls -la app/build/outputs/ 2>/dev/null || echo "(no outputs dir)"
-          echo "=== all apk files ==="
-          find app/build -name "*.apk" 2>/dev/null || true
-          echo "=== all output files ==="
-          find app/build/outputs -type f 2>/dev/null | head -30 || true
+          ls -laR app/build/outputs/apk/ 2>/dev/null || echo "(no apk outputs)"
+          echo "=== find .apk ==="
+          find . -name "*.apk" -type f 2>/dev/null || true
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: VoiceControl-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
           if-no-files-found: error
