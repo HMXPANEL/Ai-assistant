@@ -20,10 +20,13 @@ import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.data.GroqClient
 import com.voicecontrol.app.data.GeminiClient
+import com.voicecontrol.app.device.MusicController
+import com.voicecontrol.app.data.WeatherClient
 import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
 import com.voicecontrol.app.device.ContactsHelper
 import com.voicecontrol.app.device.DeviceController
+import com.voicecontrol.app.device.MusicController
 import com.voicecontrol.app.device.NotificationService
 import com.voicecontrol.app.device.SmsManager
 import com.voicecontrol.app.model.Message
@@ -70,11 +73,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _groqApiKey = MutableStateFlow("")
     val groqApiKey: StateFlow<String> = _groqApiKey.asStateFlow()
 
+    private val _weatherApiKey = MutableStateFlow("")
+    val weatherApiKey: StateFlow<String> = _weatherApiKey.asStateFlow()
+
     private val _aiProvider = MutableStateFlow(AiProvider.GEMINI)
     val aiProvider: StateFlow<AiProvider> = _aiProvider.asStateFlow()
 
     private var geminiClient = GeminiClient("")
     private var groqClient = GroqClient("")
+    private var weatherClient = WeatherClient("")
 
     private val _requestSmsPermission = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestSmsPermission: SharedFlow<Unit> = _requestSmsPermission.asSharedFlow()
@@ -103,6 +110,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val savedGroqKey = SecureKeyStore.getGroqApiKey(ctx) ?: ""
         _groqApiKey.value = savedGroqKey
         if (savedGroqKey.isNotBlank()) groqClient = GroqClient(savedGroqKey)
+
+        val savedWeatherKey = SecureKeyStore.getWeatherApiKey(ctx) ?: ""
+        _weatherApiKey.value = savedWeatherKey
+        if (savedWeatherKey.isNotBlank()) weatherClient = WeatherClient(savedWeatherKey)
 
         val prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _isWakeWordEnabled.value = prefs.getBoolean("wake_word_enabled", false)
@@ -135,6 +146,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _groqApiKey.value = key
         groqClient = GroqClient(key)
         updateAgentLlmCall()
+    }
+
+    fun saveWeatherApiKey(key: String) {
+        SecureKeyStore.saveWeatherApiKey(getApplication(), key)
+        _weatherApiKey.value = key
+        weatherClient = WeatherClient(key)
     }
 
     fun setAiProvider(provider: AiProvider) {
@@ -259,13 +276,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun llmRoute(command: String): String? {
+private suspend fun llmRoute(command: String): String? {
         val prompt = buildString {
             appendLine("ROUTER — Classify this command into one intent. Return ONLY JSON, no other text.")
             appendLine("Intents: flash_on, flash_off, mute, unmute, volume_set, brightness_set,")
             appendLine("wifi_on, wifi_off, bt_on, bt_off, data_on, data_off, airplane_on, airplane_off,")
             appendLine("open_app, show_apps, sms_send, sms_read, notif_read,")
             appendLine("alarm_set, timer_set, contact_find, contact_list, cal_read, cal_add,")
+            appendLine("weather, music_play, music_pause, music_next, music_prev, music_current,")
             appendLine("compound (multi-step, needs UI automation), call, chat, help")
             appendLine()
             appendLine("{\"intent\":\"\",\"params\":{},\"needs_agent\":false,\"speech\":\"\"}")
@@ -295,6 +313,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             "unmute" -> DeviceController.unmutePhone(getApplication())
             "volume_set" -> DeviceController.setVolume(getApplication(), params.optInt("level", 50).coerceIn(0, 100))
             "brightness_set" -> DeviceController.setBrightness(getApplication(), params.optInt("level", 50).coerceIn(0, 100))
+            "weather" -> {
+                if (_weatherApiKey.value.isBlank()) "Weather API key nahi hai. Settings mein add karein."
+                else weatherClient.getWeather(params.optString("city", ""))
+            }
+            "music_play" -> MusicController.playPause(getApplication())
+            "music_pause" -> MusicController.playPause(getApplication())
+            "music_next" -> MusicController.next(getApplication())
+            "music_prev" -> MusicController.previous(getApplication())
+            "music_current" -> MusicController.getCurrentTrack(getApplication())
             "sms_send" -> {
                 if (!checkSmsPermission()) return "SMS permission nahi hai."
                 SmsManager.sendSms(getApplication(), params.optString("contact", ""), params.optString("message", ""))
