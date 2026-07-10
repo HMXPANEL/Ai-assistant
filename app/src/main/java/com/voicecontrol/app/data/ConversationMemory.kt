@@ -25,7 +25,7 @@ class ConversationMemory(context: Context) {
     fun getHistory(): List<Pair<String, String>> {
         val entries = loadEntries()
         val total = entries.length()
-        val start = maxOf(0, total - 20)
+        val start = maxOf(0, total - 10)
         return (start until total).map { i ->
             val obj = entries.getJSONObject(i)
             Pair(obj.getString("role"), obj.getString("text"))

@@ -20,7 +20,6 @@ import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.data.GroqClient
 import com.voicecontrol.app.data.GeminiClient
-import com.voicecontrol.app.data.Mode
 import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
 import com.voicecontrol.app.device.ContactsHelper
@@ -206,13 +205,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 lower.startsWith("set volume") || lower.startsWith("volume ") || lower == "volume" -> {
-                    val n = extractNumber(lower)
-                    addBotMessage(if (n != null && n in 0..100) DeviceController.setVolume(getApplication(), n) else "Volume number samajh nahi aaya.")
+                    val n = extractInt(lower, Regex("set volume|volume|set brightness|brightness|to"))?.coerceIn(0, 100)
+                    addBotMessage(if (n != null) DeviceController.setVolume(getApplication(), n) else "Volume number samajh nahi aaya.")
                     return@launch
                 }
                 lower.startsWith("set brightness") || lower.startsWith("brightness ") || lower == "brightness" -> {
-                    val n = extractNumber(lower)
-                    addBotMessage(if (n != null && n in 0..100) DeviceController.setBrightness(getApplication(), n) else "Brightness number samajh nahi aaya.")
+                    val n = extractInt(lower, Regex("set volume|volume|set brightness|brightness|to"))?.coerceIn(0, 100)
+                    addBotMessage(if (n != null) DeviceController.setBrightness(getApplication(), n) else "Brightness number samajh nahi aaya.")
                     return@launch
                 }
                 lower.startsWith("send message to ") || lower.startsWith("send sms to ") || lower.startsWith("text ") -> {
@@ -532,19 +531,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         conversationMemory.saveMessage("assistant", text)
     }
 
-    private fun parseDuration(input: String): Int? {
-        val cleaned = input.lowercase().replace(Regex("set timer|timer for|timer|for"), "").trim()
-        Regex("""(\d+)\s*(min|mins|minute|minutes|m)""").find(cleaned)?.let { return it.groupValues[1].toInt() * 60 }
-        Regex("""(\d+)\s*(sec|secs|second|seconds|s)""").find(cleaned)?.let { return it.groupValues[1].toInt() }
-        Regex("""(\d+)\s*(hour|hours|h)""").find(cleaned)?.let { return it.groupValues[1].toInt() * 3600 }
-        Regex("""(\d+)""").find(cleaned)?.let { return it.groupValues[1].toInt() * 60 }
-        return null
-    }
+    private fun extractInt(input: String, strip: Regex): Int? =
+        Regex("""(\d+)""").find(input.lowercase().replace(strip, "").trim())?.groupValues?.get(1)?.toInt()
 
-    private fun extractNumber(input: String): Int? {
-        val cleaned = input.lowercase().replace(Regex("set volume|volume|set brightness|brightness|to"), "").trim()
-        Regex("""(\d+)""").find(cleaned)?.let { return it.groupValues[1].toInt().coerceIn(0, 100) }
-        return null
+    private fun parseDuration(input: String): Int? {
+        val n = extractInt(input, Regex("set timer|timer for|timer|for")) ?: return null
+        val cleaned = input.lowercase().replace(Regex("set timer|timer for|timer|for"), "").trim()
+        return when {
+            Regex("""(\d+)\s*(min|mins|minute|minutes|m)""").find(cleaned) != null -> n * 60
+            Regex("""(\d+)\s*(sec|secs|second|seconds|s)""").find(cleaned) != null -> n
+            Regex("""(\d+)\s*(hour|hours|h)""").find(cleaned) != null -> n * 3600
+            else -> n * 60
+        }
     }
 
     private fun getInstalledApps(): List<Pair<String, String>> {

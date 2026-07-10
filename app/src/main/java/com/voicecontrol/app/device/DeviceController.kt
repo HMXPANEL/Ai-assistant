@@ -107,15 +107,7 @@ object DeviceController {
             if (enable) "Opening mobile data settings — tap to enable."
             else "Opening mobile data settings — tap to disable."
         } catch (e: Exception) {
-            try {
-                val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                "Opening network settings."
-            } catch (e2: Exception) {
-                "Could not open network settings: ${e2.message}"
-            }
+            "Could not open network settings: ${e.message}"
         }
     }
 

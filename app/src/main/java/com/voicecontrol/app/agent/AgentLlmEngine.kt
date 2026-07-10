@@ -198,30 +198,28 @@ Command examples: "wifi on karo", "bluetooth band kar do", "wifi chalu kar", "mo
         }
     }
 
-    private fun getHindiAction(action: String): String {
-        return when (action) {
-            "click" -> "Click kar raha hoon"
-            "type" -> "Type kar raha hoon"
-            "scroll_down" -> "Neeche scroll kar raha hoon"
-            "scroll_up" -> "Upar scroll kar raha hoon"
-            "back" -> "Back ja raha hoon"
-            "home" -> "Home ja raha hoon"
-            "recent" -> "Recent apps dekh raha hoon"
-            "open_app" -> "App khol raha hoon"
-            "open_url" -> "URL khol raha hoon"
-            "tap_xy" -> "Tap kar raha hoon"
-            "long_press" -> "Long press kar raha hoon"
-            "swipe" -> "Swipe kar raha hoon"
-            "screenshot" -> "Screenshot le raha hoon"
-            "copy" -> "Copy kar raha hoon"
-            "paste" -> "Paste kar raha hoon"
-            "select_all" -> "Sab select kar raha hoon"
-            "open_notifications" -> "Notifications dekh raha hoon"
-            "wait" -> "Ruk raha hoon"
-            "done" -> "Ho gaya"
-            else -> action
-        }
-    }
+    private val actionLabels = mapOf(
+        "click" to "Click kar raha hoon",
+        "type" to "Type kar raha hoon",
+        "scroll_down" to "Neeche scroll kar raha hoon",
+        "scroll_up" to "Upar scroll kar raha hoon",
+        "back" to "Back ja raha hoon",
+        "home" to "Home ja raha hoon",
+        "recent" to "Recent apps dekh raha hoon",
+        "open_app" to "App khol raha hoon",
+        "open_url" to "URL khol raha hoon",
+        "tap_xy" to "Tap kar raha hoon",
+        "long_press" to "Long press kar raha hoon",
+        "swipe" to "Swipe kar raha hoon",
+        "screenshot" to "Screenshot le raha hoon",
+        "copy" to "Copy kar raha hoon",
+        "paste" to "Paste kar raha hoon",
+        "select_all" to "Sab select kar raha hoon",
+        "open_notifications" to "Notifications dekh raha hoon",
+        "wait" to "Ruk raha hoon",
+        "done" to "Ho gaya",
+    )
+    private fun getHindiAction(action: String): String = actionLabels[action] ?: action
 
     private suspend fun waitForStableScreen(service: AutoAgentService): List<UiTreeExtractor.UiNode> {
         var previousHash: Int? = null
