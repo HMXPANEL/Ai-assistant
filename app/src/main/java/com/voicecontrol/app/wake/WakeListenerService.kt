@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.rementia.openwakeword.lib.WakeWordEngine
@@ -71,7 +72,11 @@ class WakeListenerService : Service() {
                 engine?.detections?.collect {
                     onWakeDetected()
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("WakeListener", "Engine crash: ${e.message}", e)
+                delay(2000)
+                engine?.start()
+            }
         }
         engine?.start()
     }

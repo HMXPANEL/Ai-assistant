@@ -90,6 +90,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     val isAgentRunning: StateFlow<Boolean> = agentLlmEngine.isRunning
 
+    private val _isThinking = MutableStateFlow(false)
+    val isThinking: StateFlow<Boolean> = _isThinking.asStateFlow()
+
     private var speechRecognizer: SpeechRecognizer? = null
 
     init {
@@ -145,16 +148,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun currentLlmCall(prompt: String): String {
-        return when (_aiProvider.value) {
-            AiProvider.GEMINI -> geminiClient.let {
-                if (_geminiApiKey.value.isBlank()) "No API key set. Enter it in Settings."
-                else it.generateResponse(prompt, emptyList())
+        if (_geminiApiKey.value.isBlank() && _groqApiKey.value.isBlank())
+            return "No API key set. Enter it in Settings."
+        repeat(3) { attempt ->
+            val result = when (_aiProvider.value) {
+                AiProvider.GEMINI -> geminiClient.generateResponse(prompt, emptyList())
+                AiProvider.GROQ -> groqClient.generateResponse(prompt, emptyList())
             }
-            AiProvider.GROQ -> groqClient.let {
-                if (_groqApiKey.value.isBlank()) "No API key set. Enter it in Settings."
-                else it.generateResponse(prompt, emptyList())
-            }
+            if (!result.startsWith("Error") || attempt == 2) return result
+            delay(1000)
         }
+        return "Server se response nahi aaya. Dobara try karein."
     }
 
     fun onInputChange(text: String) {
@@ -269,7 +273,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             append("Command: $command")
         }
 
+        _isThinking.value = true
         val response = currentLlmCall(prompt)
+        _isThinking.value = false
         val json = try {
             val s = response.indexOf('{')
             val e = response.lastIndexOf('}')
@@ -328,9 +334,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             "help" -> "I can do many things! Try 'flashlight on', 'set alarm at 7am', 'send message to Mom saying hi', 'read notifications', 'wifi on karo', 'open YouTube'."
             "call" -> {
-                val contact = params.optString("name", "")
-                if (contact.isNotBlank()) ContactsHelper.findContact(getApplication(), contact)
-                else "Call karna hai but kise bulana hai?"
+                val name = params.optString("name", "")
+                val number = params.optString("number", "")
+                if (number.isNotBlank()) {
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    getApplication<Application>().startActivity(intent)
+                    "$name ko call kar raha hoon"
+                } else if (name.isNotBlank()) {
+                    ContactsHelper.findContact(getApplication(), name)
+                } else "Call karna hai but kise bulana hai?"
             }
             "wifi_on", "wifi_off", "bt_on", "bt_off", "data_on", "data_off", "airplane_on", "airplane_off",
             "open_app", "compound" -> {
@@ -454,7 +467,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     data = Uri.parse("package:${ctx.packageName}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 })
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                addBotMessage("❌ Battery optimization allow karo wake word ke liye: Settings > Apps > AI Assistant > Battery > Unrestricted")
+            }
             if (hasRecordAudioPermission()) {
                 ContextCompat.startForegroundService(ctx, Intent(ctx, com.voicecontrol.app.wake.WakeListenerService::class.java))
             } else {

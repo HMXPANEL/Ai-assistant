@@ -2,6 +2,7 @@ package com.voicecontrol.app.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,6 +62,7 @@ fun ChatScreen(
     val isListening by viewModel.isListening.collectAsState()
     val isTtsEnabled by viewModel.isTtsEnabled.collectAsState()
     val isAgentRunning by viewModel.isAgentRunning.collectAsState()
+    val isThinking by viewModel.isThinking.collectAsState()
     val listState = rememberLazyListState()
     val context = LocalContext.current
 
@@ -173,6 +175,15 @@ fun ChatScreen(
                 }
             }
 
+            if (isThinking && !isAgentRunning) {
+                Text(
+                    text = "thinking...",
+                    modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Surface(
                 shadowElevation = 8.dp,
                 modifier = Modifier.fillMaxWidth()
@@ -216,6 +227,8 @@ fun ChatScreen(
                             onClick = {
                                 if (isListening) {
                                     viewModel.stopListening()
+                                } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    viewModel.startListening()
                                 } else {
                                     permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
                                 }
