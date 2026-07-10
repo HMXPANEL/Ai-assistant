@@ -1,23 +1,20 @@
 package com.voicecontrol.app.device
 
 import android.content.Context
+import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.os.Build
-import androidx.media.session.MediaControllerCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 object MusicController {
-    private var controller: MediaControllerCompat? = null
+    private var controller: MediaController? = null
 
     fun init(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
             val activeSessions = msm.activeSessions
             if (activeSessions != null && activeSessions.isNotEmpty()) {
-                controller = MediaControllerCompat(context, activeSessions[0].sessionToken)
+                controller = activeSessions[0]
             }
         }
     }
@@ -76,8 +73,8 @@ object MusicController {
         init(context)
         return try {
             val meta = controller?.metadata
-            val title = meta?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown"
-            val artist = meta?.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown"
+            val title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown"
+            val artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "Unknown"
             "Playing: $title — $artist"
         } catch (e: Exception) {
             "No track info."

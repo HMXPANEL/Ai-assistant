@@ -242,32 +242,38 @@ fun SettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Weather", style = MaterialTheme.typography.titleMedium)
 
-                var weatherKeyInput by remember { mutableStateOf(savedWeatherKey) }
-                OutlinedTextField(
-                    value = weatherKeyInput,
-                    onValueChange = { weatherKeyInput = it },
-                    label = { Text("OpenWeatherMap API Key") },
-                    placeholder = { Text("Get free key at openweathermap.org/api") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { viewModel.saveWeatherApiKey(weatherKeyInput.trim()) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = weatherKeyInput.isNotBlank()
-                ) { Text("Save Weather Key") }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Free tier: 60 calls/min, 1M calls/month \u2022 openweathermap.org",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Weather", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Permissions", style = MaterialTheme.typography.titleMedium)
+                    var weatherKeyInput by remember { mutableStateOf(savedWeatherKey) }
+                    OutlinedTextField(
+                        value = weatherKeyInput,
+                        onValueChange = { weatherKeyInput = it },
+                        label = { Text("OpenWeatherMap API Key") },
+                        placeholder = { Text("Get free key at openweathermap.org/api") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { viewModel.saveWeatherApiKey(weatherKeyInput.trim()) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = weatherKeyInput.isNotBlank()
+                    ) { Text("Save Weather Key") }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Free tier: 60 calls/min, 1M calls/month \u2022 openweathermap.org",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Permissions", style = MaterialTheme.typography.titleMedium)
 
             val ctx = LocalContext.current
             val permissionLauncher = rememberLauncherForActivityResult(

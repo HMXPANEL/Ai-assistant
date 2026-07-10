@@ -15,15 +15,6 @@ object SecureKeyStore {
     private const val KEY_WEATHER_API_KEY = "weather_api_key"
 
     private fun getEncryptedPrefs(context: Context) = try {
-
-    fun saveWeatherApiKey(context: Context, apiKey: String) {
-        getEncryptedPrefs(context).edit().putString(KEY_WEATHER_API_KEY, apiKey).apply()
-    }
-
-    fun getWeatherApiKey(context: Context): String? {
-        return getEncryptedPrefs(context).getString(KEY_WEATHER_API_KEY, null)
-    }
-}
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
@@ -54,5 +45,13 @@ object SecureKeyStore {
 
     fun getGroqApiKey(context: Context): String? {
         return getEncryptedPrefs(context).getString(KEY_GROQ_API_KEY, null)
+    }
+
+    fun saveWeatherApiKey(context: Context, apiKey: String) {
+        getEncryptedPrefs(context).edit().putString(KEY_WEATHER_API_KEY, apiKey).apply()
+    }
+
+    fun getWeatherApiKey(context: Context): String? {
+        return getEncryptedPrefs(context).getString(KEY_WEATHER_API_KEY, null)
     }
 }

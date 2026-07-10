@@ -1,5 +1,6 @@
 package com.voicecontrol.app.data
 
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -49,13 +50,13 @@ class WeatherClient(private val apiKey: String) {
         val desc = weather.getString("description")
         val wind = obj.getJSONObject("wind").getDouble("speed")
 
-        val lang = if (desc.contains(Regex("[a-zA-Z]"))) "en" else "hi"
-        return if (lang == "hi") {
-            "$name: $desc, ${temp}°C (feels $feels°), humidity $humidity%, hawa ${wind.toInt()} km/h"
-        } else {
+        val isEnglish = desc.contains(Regex("[a-zA-Z]"))
+        return if (isEnglish) {
             "$name: $desc, ${temp}°C (feels $feels°), humidity $humidity%, wind ${wind.toInt()} km/h"
+        } else {
+            "$name: $desc, ${temp}°C (feels $feels°), humidity $humidity%, hawa ${wind.toInt()} km/h"
         }
     }
 }
 
-private fun String.roundToInt(): Int = this.toDouble().roundToInt()
+fun Double.roundToInt(): Int = this.roundToInt()

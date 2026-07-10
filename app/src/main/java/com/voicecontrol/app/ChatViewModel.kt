@@ -20,7 +20,6 @@ import com.voicecontrol.app.data.ConversationMemory
 import com.voicecontrol.app.security.SecureKeyStore
 import com.voicecontrol.app.data.GroqClient
 import com.voicecontrol.app.data.GeminiClient
-import com.voicecontrol.app.device.MusicController
 import com.voicecontrol.app.data.WeatherClient
 import com.voicecontrol.app.device.AlarmHelper
 import com.voicecontrol.app.device.CalendarHelper
