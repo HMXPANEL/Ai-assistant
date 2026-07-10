@@ -12,9 +12,9 @@ object MusicController {
     fun init(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             val msm = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-            val activeSessions = msm.activeSessions
-            if (activeSessions != null && activeSessions.isNotEmpty()) {
-                controller = activeSessions[0]
+            val sessions = msm.getActiveSessions(null)
+            if (sessions.isNotEmpty()) {
+                controller = sessions[0]
             }
         }
     }
